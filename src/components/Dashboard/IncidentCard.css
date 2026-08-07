@@ -1,0 +1,89 @@
+.incident-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.9rem 1.1rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.incident-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.incident-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.incident-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.incident-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  display: flex;
+  gap: 0.4rem;
+}
+
+.dot {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.incident-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-xs);
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.incident-badge.urgent {
+  background: color-mix(in srgb, var(--k-red) 15%, var(--bg-card));
+  color: var(--k-red);
+  border-color: color-mix(in srgb, var(--k-red) 40%, transparent);
+}
+
+.incident-badge.review {
+  background: color-mix(in srgb, var(--k-orange) 15%, var(--bg-card));
+  color: var(--k-orange);
+  border-color: color-mix(in srgb, var(--k-orange) 40%, transparent);
+}
+
+.incident-badge.resolved {
+  background: color-mix(in srgb, var(--k-green) 15%, var(--bg-card));
+  color: var(--k-green);
+  border-color: color-mix(in srgb, var(--k-green) 40%, transparent);
+}
+
+.incident-view-btn {
+  background: var(--bg-hover);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.45rem 1rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.incident-view-btn:hover {
+  background: var(--bg-active);
+  border-color: var(--border-strong);
+}

@@ -1,0 +1,31 @@
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1.1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.stat-value {
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.stat-value.highlight {
+  color: var(--danger);
+}
+
+.stat-sub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}

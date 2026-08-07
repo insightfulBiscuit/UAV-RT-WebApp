@@ -1,0 +1,23 @@
+{
+  "name": "uav-rt-webapp-server",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "fast-xml-parser": "^5.10.1",
+    "jszip": "^3.10.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^24.12.3",
+    "tsx": "^4.19.2",
+    "typescript": "~5.6.3"
+  }
+}

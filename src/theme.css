@@ -1,0 +1,198 @@
+/* Design tokens.
+ * The root defaults to LIGHT. Dark mode is opt-in via [data-theme="dark"]
+ * on <html>. A tiny inline script in index.html sets the attribute before
+ * React mounts, so there's no flash of wrong theme on reload.
+ *
+ * Brand ring (Kelowna colors) stays theme-agnostic — those hues don't
+ * change between light/dark. Only surface + text tokens shift.
+ */
+
+:root {
+  /* Brand ring (fixed across themes) */
+  --k-navy:       #1B3878;
+  --k-blue:       #1A5FAD;
+  --k-teal:       #1A8A96;
+  --k-green:      #4A9E35;
+  --k-yellow:     #E8C020;
+  --k-orange:     #E87820;
+  --k-red-orange: #D44820;
+  --k-red:        #C83228;
+  --k-pink:       #C0365A;
+
+  /* Semantic accent (used across primitives — pointer for future rebrand) */
+  --accent:              var(--k-blue);
+  --accent-strong:       #164e8f;
+  --accent-contrast:     #ffffff;
+  --danger:              var(--k-red);
+  --success:             var(--k-green);
+  --warning:             var(--k-orange);
+
+  /* Radii, spacing, shadow */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12);
+
+  --z-modal: 100;
+
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  /* LIGHT surfaces (default) */
+  --bg-app:         #f5f6f8;
+  --bg-panel:       #ffffff;
+  --bg-card:        #ffffff;
+  --bg-input:       #ffffff;
+  --bg-hover:       #eef1f5;
+  --bg-active:      #e4e9ef;
+  --bg-video:       #0a0a0a;
+
+  --border-subtle:  #e5e8ec;
+  --border-strong:  #d4d9df;
+  --border-focus:   var(--accent);
+
+  --text-primary:   #1a1f2b;
+  --text-secondary: #4d5665;
+  --text-muted:     #8892a2;
+  --text-inverse:   #ffffff;
+  --text-on-accent: #ffffff;
+
+  --scrim:          rgba(15, 23, 42, 0.45);
+  --highlight:      rgba(26, 95, 173, 0.08);
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --accent:              #4b8fd9;
+  --accent-strong:       #679fdf;
+  --accent-contrast:     #0b1220;
+
+  --bg-app:         #0f1115;
+  --bg-panel:       #16181d;
+  --bg-card:        #1c1f26;
+  --bg-input:       #1c1f26;
+  --bg-hover:       #23272f;
+  --bg-active:      #2a2f39;
+  --bg-video:       #000000;
+
+  --border-subtle:  #262a33;
+  --border-strong:  #363c47;
+  --border-focus:   var(--accent);
+
+  --text-primary:   #e8ecf2;
+  --text-secondary: #a7b0bd;
+  --text-muted:     #6c7482;
+  --text-inverse:   #0b1220;
+  --text-on-accent: #ffffff;
+
+  --scrim:          rgba(0, 0, 0, 0.65);
+  --highlight:      rgba(75, 143, 217, 0.14);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
+
+  color-scheme: dark;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  min-height: 100dvh;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-app);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+h1, h2, h3, h4, h5, h6 { margin: 0; }
+
+button {
+  font-family: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* Native select + input theming (used unless a component overrides) */
+select, input[type="text"], input[type="date"], input[type="time"], input[type="number"] {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.9rem;
+  padding: 0.45rem 0.7rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+select {
+  padding-right: 2.2rem;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                    linear-gradient(-45deg, transparent 50%, currentColor 50%);
+  background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+select:hover, input:hover {
+  border-color: var(--border-strong);
+}
+
+select:focus, input:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--highlight);
+}
+
+select:disabled, input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Date-picker calendar icon should track theme */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(0);
+  opacity: 0.6;
+}
+
+:root[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.6;
+}

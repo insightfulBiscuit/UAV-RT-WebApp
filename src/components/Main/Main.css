@@ -1,0 +1,14 @@
+.main {
+  display: flex;
+  align-items: stretch;
+  min-height: calc(100dvh - 56px);
+  background: var(--bg-app);
+}
+
+.main-content {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-5) var(--space-6);
+  overflow-y: auto;
+  display: flex;
+}
