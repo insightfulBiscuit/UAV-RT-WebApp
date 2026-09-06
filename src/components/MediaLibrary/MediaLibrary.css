@@ -89,9 +89,40 @@
 .media-thumb-fallback {
   width: 100%;
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--text-muted);
+  background: var(--bg-hover);
+}
+
+.media-thumb-loading {
+  position: absolute;
+  inset: 0;
   display: grid;
   place-items: center;
-  color: var(--text-muted);
+  background: var(--bg-hover);
+}
+
+.media-thumb-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+
+.media-video-play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
 }
 
 .media-type-badge {

@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s http://localhost:4000/api/health)",
+      "Bash(curl -s http://localhost:4000/api/devices)",
+      "Bash(npx tsc *)",
+      "Bash(npm install *)",
+      "Bash(curl -s http://localhost:4000/api/mqtt/status)",
+      "Bash(curl -s \"http://localhost:4000/api/mqtt/tail?limit=50\")",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s \"http://localhost:4000/api/mqtt/tail?limit=100\")",
+      "Bash(curl -s \"http://localhost:4000/api/mqtt/tail?limit=100&topic=1581F8HGX264P00A1P3U\")",
+      "Bash(curl -s -X POST http://localhost:4000/api/thermal/measure -H \"Content-Type: application/json\" -d '{\"cameraIndex\":\"99-0-0\",\"x\":0.5,\"y\":0.5}')",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s \"http://localhost:4000/api/mqtt/tail?limit=200&topic=property\")",
+      "Bash(curl -s -X POST http://localhost:4000/api/livestream/start -H \"Content-Type: application/json\" -d '{\"sn\":\"8UUXP3800A10MS\",\"cameraIndex\":\"165-0-7\",\"qualityType\":\"adaptive\"}')",
+      "Bash(chmod +x /Volumes/Dnl_512_SSD/Github/UAV-RT-WebApp/scratchpad/thermal_sdk_val/sdk_bin/dji_irp)",
+      "Bash(docker build *)"
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: uavrt-mediamtx
+    restart: unless-stopped
+    ports:
+      - "1935:1935"    # RTMP ingest (FH2 → dock pushes here)
+      - "8888:8888"    # HLS playback
+      - "8889:8889"    # WHEP (WebRTC) playback
+      - "8189:8189/udp" # WebRTC ICE (UDP)
+      - "9997:9997"    # HTTP API (localhost only in production)
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro

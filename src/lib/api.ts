@@ -1,6 +1,14 @@
+export type LensType = "wide" | "zoom" | "ir" | "normal";
+
+export type Lens = {
+  lens_type: LensType | string;
+  available_lens_types?: (LensType | string)[];
+};
+
 export type Camera = {
   camera_index: string;
   camera_position?: string;
+  lens_list?: Lens[];
 };
 
 export type DeviceInfo = {
@@ -18,9 +26,86 @@ export type Device = {
 
 export type LivestreamStart = {
   expire_ts: number;
-  url: string;
-  url_type: string;
+  streamKey: string;
+  whepUrl: string | null;
+  rtmpUrl: string | null;
+  raw: { url_type?: string; url?: string };
 };
+
+export type AiTapStatus = {
+  running: boolean;
+  streamKey: string | null;
+  rtmpUrl: string | null;
+  frameCount: number;
+  lastFrameAt: number | null;
+  startedAt: number | null;
+  ffmpegPid: number | null;
+  lastError: string | null;
+};
+
+export async function fetchAiTapStatus(signal?: AbortSignal): Promise<AiTapStatus> {
+  return json<AiTapStatus>(await fetch("/api/ai/tap/status", { signal }));
+}
+
+export type AkamaiStream = {
+  id: string;
+  label: string;
+  whepUrl: string;
+  rtmpUrl: string;
+  mediamtxPath: string;
+};
+
+export type AkamaiStreamListEntry = AkamaiStream & {
+  match: { aircraftSn?: string; gatewaySn?: string; cameraIndex?: string; lens?: string; position?: string };
+  source: string;
+  ready: boolean;
+};
+
+export type AkamaiTileQuery = {
+  aircraftSn?: string;
+  gatewaySn?: string;
+  cameraIndex?: string;
+  lens?: string;
+  position?: string;
+};
+
+export async function fetchAkamaiList(signal?: AbortSignal): Promise<{ streams: AkamaiStreamListEntry[] }> {
+  return json<{ streams: AkamaiStreamListEntry[] }>(
+    await fetch("/api/livestream/akamai/list", { signal }),
+  );
+}
+
+/**
+ * Look up an Akamai relay for a specific tile. Throws on 404/503 with the
+ * server's error body — the caller can use those to decide whether to fall
+ * back to FH2 or show a "not configured" state.
+ */
+export async function fetchAkamaiForTile(
+  q: AkamaiTileQuery,
+  signal?: AbortSignal,
+): Promise<AkamaiStream> {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(q)) {
+    if (v) qs.set(k, v);
+  }
+  return json<AkamaiStream>(
+    await fetch(`/api/livestream/akamai/for-tile?${qs.toString()}`, { signal }),
+  );
+}
+
+export async function startAiTap(streamKey: string): Promise<AiTapStatus> {
+  return json<AiTapStatus>(
+    await fetch("/api/ai/tap/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ streamKey }),
+    }),
+  );
+}
+
+export async function stopAiTap(): Promise<AiTapStatus> {
+  return json<AiTapStatus>(await fetch("/api/ai/tap/stop", { method: "POST" }));
+}
 
 export type QualityType = "adaptive" | "smooth" | "ultra_high_definition";
 
@@ -93,6 +178,145 @@ export async function startLivestream(
 ): Promise<LivestreamStart> {
   return json<LivestreamStart>(
     await fetch("/api/livestream/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+      signal,
+    })
+  );
+}
+
+export type MqttStatus = {
+  configured: boolean;
+  connected: boolean;
+  broker?: string;
+};
+
+export async function fetchMqttStatus(signal?: AbortSignal): Promise<MqttStatus> {
+  return json<MqttStatus>(await fetch("/api/mqtt/status", { signal }));
+}
+
+export type ThermalMeasurement = {
+  temp: number;
+  x: number;
+  y: number;
+  actualX?: number;
+  actualY?: number;
+  globalMin?: number;
+  globalMax?: number;
+  source: string;
+  osdAgeMs?: number;
+};
+
+export type ThermalAnchorStatus = {
+  autoCapture: boolean;
+  intervalMs: number;
+  hasAnchor: boolean;
+  lastCapturedAt: number | null;
+  lastSource: "sdk" | "mock" | null;
+  aircraftSn: string | null;
+  cameraIndex: string;
+  sdkAvailable: boolean;
+  wsClients: number;
+  latest: {
+    id: string;
+    capturedAt: number;
+    width: number;
+    height: number;
+    min: number;
+    max: number;
+    mean: number;
+    source: "sdk" | "mock";
+    preview: number[];
+    previewWidth: number;
+    previewHeight: number;
+  } | null;
+};
+
+export type ThermalOsdReading = {
+  ts: number;
+  ageMs: number;
+  min?: number;
+  max?: number;
+  paletteId?: number;
+  cameraIndex?: string;
+  point: { temp: number; x: number; y: number } | null;
+};
+
+export async function fetchThermalOsd(sn: string, signal?: AbortSignal): Promise<ThermalOsdReading> {
+  return json<ThermalOsdReading>(
+    await fetch(`/api/thermal/osd?sn=${encodeURIComponent(sn)}`, { signal }),
+  );
+}
+
+export async function fetchAnchorStatus(signal?: AbortSignal): Promise<ThermalAnchorStatus> {
+  return json<ThermalAnchorStatus>(await fetch("/api/thermal/anchor/status", { signal }));
+}
+
+export async function setAnchorTarget(
+  params: { aircraftSn: string; cameraIndex: string },
+): Promise<{ ok: boolean }> {
+  return json<{ ok: boolean }>(
+    await fetch("/api/thermal/anchor/target", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    }),
+  );
+}
+
+export async function captureAnchor(): Promise<unknown> {
+  return json<unknown>(
+    await fetch("/api/thermal/anchor/capture", { method: "POST" }),
+  );
+}
+
+export async function setAnchorAuto(params: { on: boolean; intervalMs?: number }): Promise<unknown> {
+  return json<unknown>(
+    await fetch("/api/thermal/anchor/auto", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    }),
+  );
+}
+
+export async function measureThermal(
+  params: { dockSn: string; cameraIndex: string; x: number; y: number },
+  signal?: AbortSignal
+): Promise<ThermalMeasurement> {
+  return json<ThermalMeasurement>(
+    await fetch("/api/thermal/measure", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+      signal,
+    })
+  );
+}
+
+export async function switchAircraftLens(
+  params: { sn: string; cameraIndex: string; lensType: "wide" | "zoom" | "ir" },
+  signal?: AbortSignal
+): Promise<{ ok: boolean }> {
+  return json<{ ok: boolean }>(
+    await fetch("/api/aircraft/switch-lens", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+      signal,
+    })
+  );
+}
+
+export type DockCameraPosition = "indoor" | "outdoor";
+
+export async function switchDockCamera(
+  params: { sn: string; cameraIndex: string; cameraPosition: DockCameraPosition },
+  signal?: AbortSignal
+): Promise<{ ok: boolean }> {
+  return json<{ ok: boolean }>(
+    await fetch("/api/dock/switch-camera", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(params),

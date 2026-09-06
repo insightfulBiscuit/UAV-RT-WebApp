@@ -1,7 +1,29 @@
 import { useEffect, useMemo, useState } from "react";
-import { LuDownload, LuImage, LuVideo, LuFile, LuX } from "react-icons/lu";
+import { LuDownload, LuImage, LuVideo, LuFile, LuX, LuPlay } from "react-icons/lu";
 import { fetchDevices, fetchMedia, type Device, type MediaItem } from "../../lib/api";
 import "./MediaLibrary.css";
+
+function ServerThumbnail({ url, alt, size }: { url: string; alt: string; size: number }) {
+  const [failed, setFailed] = useState(false);
+  const canAttempt = size > 0;
+  const thumbSrc = canAttempt ? `/api/media/thumb?url=${encodeURIComponent(url)}` : null;
+
+  if (!canAttempt || failed) {
+    return (
+      <div className="media-thumb-fallback">
+        <LuVideo size={22} />
+      </div>
+    );
+  }
+  return (
+    <>
+      <img src={thumbSrc!} alt={alt} loading="lazy" onError={() => setFailed(true)} />
+      <span className="media-video-play" aria-hidden>
+        <LuPlay size={28} />
+      </span>
+    </>
+  );
+}
 
 type FileTypeFilter = "all" | "image" | "video" | "ppk";
 
@@ -168,6 +190,8 @@ export default function MediaLibrary() {
             <div className="media-thumb">
               {it.preview_url ? (
                 <img src={it.preview_url} alt={it.name} loading="lazy" />
+              ) : it.original_url ? (
+                <ServerThumbnail url={it.original_url} alt={it.name} size={it.size} />
               ) : (
                 <div className="media-thumb-fallback">
                   <TypeIcon type={it.file_type} />

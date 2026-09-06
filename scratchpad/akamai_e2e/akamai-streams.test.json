@@ -1,0 +1,13 @@
+{
+  "$schema": "TEST config for akamai-tile-routing-e2e. Maps M4TD Wide tile to a local MediaMTX path that we publish a test pattern into. No CHANGEME placeholders — server should mark this ready.",
+  "streams": [
+    {
+      "id": "test_m4td_wide",
+      "label": "M4TD Wide (test pattern)",
+      "match": { "aircraftSn": "1581F8HGX264P00A1P3U", "cameraIndex": "99-0-0", "lens": "wide" },
+      "whepUrl": "http://localhost:8889/test_akamai/whep",
+      "mediamtxPath": "test_akamai",
+      "source": "rtmp://localhost:1935/test_akamai"
+    }
+  ]
+}
