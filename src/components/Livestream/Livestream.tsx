@@ -40,6 +40,14 @@ import {
 } from "../../lib/api";
 import { playWhep, type WhepSession } from "../../lib/whepPlayer";
 import { ThermalMatrixOverlay } from "./ThermalMatrixOverlay";
+import { AiDetectionsOverlay } from "./AiDetectionsOverlay";
+import { pushAlert } from "../Alerts/AlertToasts";
+import {
+  fetchAiWorkerStatus,
+  startAiWorker,
+  stopAiWorker,
+  type AiWorkerStatus,
+} from "../../lib/api";
 import "./Livestream.css";
 
 type SourceKind = "drone" | "dock";
@@ -279,6 +287,8 @@ export default function Livestream() {
   const [videoAspect, setVideoAspect] = useState<string>("16 / 9");
   const [osdRange, setOsdRange] = useState<{ min: number; max: number } | null>(null);
   const [osdPaletteId, setOsdPaletteId] = useState<number | null>(null);
+  const [aiWorker, setAiWorker] = useState<AiWorkerStatus | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
 
   const loadDevices = useCallback(async (signal?: AbortSignal) => {
     setRefreshingDevices(true);
@@ -298,6 +308,7 @@ export default function Livestream() {
     fetchMqttStatus(ctrl.signal).then(setMqttStatus).catch(() => setMqttStatus(null));
     fetchAnchorStatus(ctrl.signal).then(setAnchorStatus).catch(() => setAnchorStatus(null));
     fetchAiTapStatus(ctrl.signal).then(setAiTap).catch(() => setAiTap(null));
+    fetchAiWorkerStatus(ctrl.signal).then(setAiWorker).catch(() => setAiWorker(null));
     const id = window.setInterval(() => loadDevices(), 10000);
     const anchorId = window.setInterval(
       () => void fetchAnchorStatus().then(setAnchorStatus).catch(() => {}),
@@ -307,11 +318,16 @@ export default function Livestream() {
       () => void fetchAiTapStatus().then(setAiTap).catch(() => {}),
       2000,
     );
+    const workerId = window.setInterval(
+      () => void fetchAiWorkerStatus().then(setAiWorker).catch(() => {}),
+      2500,
+    );
     return () => {
       ctrl.abort();
       window.clearInterval(id);
       window.clearInterval(anchorId);
       window.clearInterval(tapId);
+      window.clearInterval(workerId);
       sessionRef.current?.stop();
     };
   }, [loadDevices]);
@@ -515,6 +531,31 @@ export default function Livestream() {
     }
   }, [capturing]);
 
+  const handleToggleAi = useCallback(async () => {
+    if (aiBusy || !active) return;
+    setAiBusy(true);
+    setSwitchError(null);
+    try {
+      const running = !!aiWorker?.running;
+      if (running) {
+        // Stop worker first, then the frame tap.
+        await stopAiWorker().then(setAiWorker);
+        if (aiTap?.running) await stopAiTap().then(setAiTap);
+      } else {
+        const streamKey = `${active.sn}_${active.cameraIndex.replace(/[^A-Za-z0-9_-]/g, "-")}`;
+        if (!aiTap?.running) {
+          await startAiTap(streamKey).then(setAiTap);
+        }
+        const modality: "rgb" | "ir" = active.lens === "ir" ? "ir" : "rgb";
+        await startAiWorker({ modality, mode: "auto" }).then(setAiWorker);
+      }
+    } catch (e) {
+      setSwitchError(`AI toggle failed: ${(e as Error).message}`);
+    } finally {
+      setAiBusy(false);
+    }
+  }, [aiBusy, active, aiWorker?.running, aiTap?.running]);
+
   const handleToggleAiTap = useCallback(async () => {
     if (aiTapBusy || !active) return;
     setAiTapBusy(true);
@@ -668,6 +709,20 @@ export default function Livestream() {
           >
             <LuRotateCw size={14} className={refreshingDevices ? "spin" : ""} />
             Refresh
+          </button>
+          <button
+            className="live-btn refresh"
+            onClick={handleToggleAi}
+            disabled={aiBusy || !canStream}
+            type="button"
+            title={
+              aiWorker?.running
+                ? `AI inferencing (${aiWorker.modality} · ${aiWorker.mode} · ${aiWorker.latencyMsP50 ?? "?"}ms). Click to stop.`
+                : "Start AI object detection on the live stream"
+            }
+          >
+            <LuRadio size={14} className={aiWorker?.running ? "spin" : ""} />
+            AI{aiWorker?.running ? ` · ${aiWorker.framesReceived}` : ""}
           </button>
           <button
             className="live-btn refresh"
@@ -887,6 +942,10 @@ export default function Livestream() {
                 <LuVideo size={48} />
                 <p>{active ? placeholderMessage(active) : "No camera selected"}</p>
               </div>
+            )}
+
+            {canStream && aiWorker?.running && (
+              <AiDetectionsOverlay enabled onAlert={pushAlert} />
             )}
 
             {activeIsThermal && canStream && matrixOn && (

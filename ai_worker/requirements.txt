@@ -1,0 +1,11 @@
+# For real DEIMv2 inference on CUDA — install these on the GPU host.
+# For mock mode on the Mac we only need numpy.
+numpy>=1.24
+opencv-python-headless>=4.9
+
+# --- Real mode only (comment out for mock-only environments) ---
+# torch>=2.2         # install matching your CUDA version, e.g.
+                     # pip install torch==2.4.0 --index-url https://download.pytorch.org/whl/cu121
+# torchvision>=0.17
+# pyyaml>=6.0
+# transformers>=4.40  # DEIMv2 uses HF for the DINOv3 backbone

@@ -243,6 +243,55 @@ export type ThermalOsdReading = {
   point: { temp: number; x: number; y: number } | null;
 };
 
+export type AiDetection = {
+  class: string;
+  conf: number;
+  /** normalized [x1, y1, x2, y2] */
+  box: [number, number, number, number];
+};
+
+export type AiAlert = AiDetection & {
+  trigger: string;
+  temp_c: number | null;
+  box_key: string;
+  cooldown_left: number;
+  color: string;
+};
+
+export type AiWorkerStatus = {
+  running: boolean;
+  modality: "rgb" | "ir";
+  mode: "auto" | "real" | "mock";
+  framesSent: number;
+  framesReceived: number;
+  lastDetectionAt: number | null;
+  lastAlertAt: number | null;
+  pid: number | null;
+  lastError: string | null;
+  latencyMsP50: number | null;
+};
+
+export async function fetchAiWorkerStatus(signal?: AbortSignal): Promise<AiWorkerStatus> {
+  return json<AiWorkerStatus>(await fetch("/api/ai/worker/status", { signal }));
+}
+
+export async function startAiWorker(params: {
+  modality: "rgb" | "ir";
+  mode?: "auto" | "real" | "mock";
+}): Promise<AiWorkerStatus> {
+  return json<AiWorkerStatus>(
+    await fetch("/api/ai/worker/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    }),
+  );
+}
+
+export async function stopAiWorker(): Promise<AiWorkerStatus> {
+  return json<AiWorkerStatus>(await fetch("/api/ai/worker/stop", { method: "POST" }));
+}
+
 export async function fetchThermalOsd(sn: string, signal?: AbortSignal): Promise<ThermalOsdReading> {
   return json<ThermalOsdReading>(
     await fetch(`/api/thermal/osd?sn=${encodeURIComponent(sn)}`, { signal }),

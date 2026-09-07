@@ -3,6 +3,7 @@ import Home from "./pages/Home";
 import Media from "./pages/Media";
 import Live from "./pages/Live";
 import MissionsPage from "./pages/Missions";
+import { AlertToasts } from "./components/Alerts/AlertToasts";
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
         <Route path="/live" element={<Live />} />
         <Route path="/missions" element={<MissionsPage />} />
       </Routes>
+      <AlertToasts />
     </Router>
   );
 }

@@ -20,6 +20,7 @@ import { wsHub } from "./wsHub.js";
 import { anchorService } from "./thermalAnchorService.js";
 import { isSdkAvailable } from "./thermalSdkService.js";
 import { aiFrameTap } from "./aiFrameTap.js";
+import { aiWorker } from "./aiWorker.js";
 import { akamaiRegistry } from "./akamaiConfig.js";
 
 const app = express();
@@ -341,6 +342,24 @@ app.post("/api/ai/tap/start", wrap(async (req) => {
 }));
 
 app.post("/api/ai/tap/stop", (_req, res) => res.json(aiFrameTap.stop()));
+
+// ---- AI inference worker (Python DEIMv2 subprocess) ----
+
+app.get("/api/ai/worker/status", (_req, res) => res.json(aiWorker.status()));
+
+app.post("/api/ai/worker/start", wrap(async (req) => {
+  const modality = String(req.body?.modality ?? "rgb").toLowerCase();
+  const mode = String(req.body?.mode ?? "auto").toLowerCase();
+  if (modality !== "rgb" && modality !== "ir") {
+    throw new Fh2Error(400, -1, "modality must be 'rgb' or 'ir'");
+  }
+  if (!["auto", "real", "mock"].includes(mode)) {
+    throw new Fh2Error(400, -1, "mode must be one of auto | real | mock");
+  }
+  return aiWorker.start(modality as "rgb" | "ir", mode as "auto" | "real" | "mock");
+}));
+
+app.post("/api/ai/worker/stop", (_req, res) => res.json(aiWorker.stop()));
 
 app.get("/api/tasks", requireCfg, wrap(async (req) => {
   const sn = String(req.query.sn ?? "");
