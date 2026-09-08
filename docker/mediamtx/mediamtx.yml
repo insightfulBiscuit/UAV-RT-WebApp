@@ -17,15 +17,22 @@ rtmpEncryption: "no"
 # --- WHEP playback (what the browser plays) ---
 webrtc: yes
 webrtcAddress: :8889
-webrtcAllowOrigins: ["*"]
+webrtcAllowOrigin: '*'
 webrtcTrackGatherTimeout: 2s
 webrtcICEServers2:
   - url: stun:stun.l.google.com:19302
+# Pin the ICE candidates advertised to browsers on the same host. On Windows
+# in particular, MediaMTX's auto-detection sometimes picks up vEthernet /
+# WSL / Hyper-V / VPN interfaces whose IPs the browser cannot reach — after
+# 5-7 seconds of ICE consent-freshness checks failing on those candidates,
+# the peer drops to "disconnected" and the video freezes. Pinning to
+# 127.0.0.1 avoids that whole class of failure for localhost dev.
+webrtcAdditionalHosts: [127.0.0.1]
 
 # --- HLS fallback (2-5 s latency, universal player) ---
 hls: yes
 hlsAddress: :8888
-hlsAllowOrigins: ["*"]
+hlsAllowOrigin: '*'
 hlsVariant: lowLatency
 
 # --- API (used by the backend for stream inventory + health) ---
@@ -62,11 +69,6 @@ paths:
     sourceOnDemandCloseAfter: 10s
   dock3_indoor:
     source: rtmp://172.232.174.165:1935/live/dock3_indoor?user=uavrt_all_read&pass=88f3908355cd5ec0bf0c518fe8ec350b9e48056642cdba8e
-    sourceOnDemand: yes
-    sourceOnDemandStartTimeout: 10s
-    sourceOnDemandCloseAfter: 10s
-  dock3_outdoor:
-    source: rtmp://172.232.174.165:1935/live/dock3_outdoor?user=uavrt_all_read&pass=88f3908355cd5ec0bf0c518fe8ec350b9e48056642cdba8e
     sourceOnDemand: yes
     sourceOnDemandStartTimeout: 10s
     sourceOnDemandCloseAfter: 10s

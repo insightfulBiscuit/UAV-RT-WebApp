@@ -22,3 +22,26 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Windows-native tools we vendor locally (downloaded, not built)
+vendor/mediamtx/
+
+# DEIMv2 delivery — code is optional to track, huge assets never are
+deimv2/new_models/*.pth
+deimv2/DEIMv2/ckpts/*.pt
+deimv2/DEIMv2/ckpts/*.pth
+deimv2/DEIMv2/weight/*.pth
+deimv2/DEIMv2/outputs/
+deimv2/third_party/dji_thermal_sdk/
+deimv2/**/__pycache__/
+deimv2/**/*.pyc
+
+# Python bytecode from ai_worker
+ai_worker/__pycache__/
+ai_worker/**/*.pyc
+
+# User-tuned alert thresholds (written by the settings UI)
+server/config/thresholds.json
+
+# User-added ntfy subscriber topics
+server/config/ntfy-topics.json

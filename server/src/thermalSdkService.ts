@@ -7,14 +7,12 @@ import { randomUUID } from "node:crypto";
 /**
  * Wrapper around DJI Thermal SDK v1.8 `dji_irp` binary.
  *
- * The SDK is Linux/Windows only. On macOS you must run it in a Docker
- * container; set THERMAL_SDK_BIN to point at a wrapper script that shells
- * into the container. If the binary isn't found, decode() returns a mock
- * flat matrix so the rest of the pipeline can still be developed.
- *
- * Expected shape:
- *   THERMAL_SDK_BIN  — absolute path to `dji_irp` or a wrapper (default: "dji_irp" in PATH)
+ * Expected env:
+ *   THERMAL_SDK_BIN  — absolute path to `dji_irp` (or `dji_irp.exe` on Windows)
  *   THERMAL_SDK_LIB  — LD_LIBRARY_PATH for the shared libs (Linux)
+ *
+ * If the binary is not available the anchor pipeline refuses to run — no
+ * mock fallback, by design.
  */
 
 export type TemperatureMatrix = {
@@ -25,7 +23,7 @@ export type TemperatureMatrix = {
   min: number;
   max: number;
   mean: number;
-  source: "sdk" | "mock";
+  source: "sdk";
   capturedAt: number;
 };
 
@@ -42,7 +40,7 @@ export async function isSdkAvailable(): Promise<boolean> {
       if (!sdkAvailable) {
         console.warn(
           `Thermal SDK binary not found (tried "${SDK_BIN}"). ` +
-            `Set THERMAL_SDK_BIN to enable real R-JPEG decoding; using mock matrix in the meantime.`,
+            `Set THERMAL_SDK_BIN to a valid dji_irp path. Anchor decoding is disabled until then.`,
         );
       }
       resolve(!!sdkAvailable);
@@ -60,7 +58,12 @@ export async function isSdkAvailable(): Promise<boolean> {
  */
 export async function decodeRJpeg(rjpegBuf: Buffer): Promise<TemperatureMatrix> {
   const available = await isSdkAvailable();
-  if (!available) return mockMatrix();
+  if (!available) {
+    throw new Error(
+      `DJI Thermal SDK binary unavailable (tried "${SDK_BIN}"). ` +
+        `Set THERMAL_SDK_BIN in server/.env before capturing anchors.`,
+    );
+  }
 
   const stamp = randomUUID().slice(0, 12);
   const inputPath = join(tmpdir(), `rjpeg-${stamp}.jpg`);
@@ -123,22 +126,4 @@ export async function decodeRJpeg(rjpegBuf: Buffer): Promise<TemperatureMatrix> 
       } catch { /* ignore */ }
     }
   }
-}
-
-/** Fallback used when the SDK is unavailable — a flat 30°C matrix. */
-function mockMatrix(): TemperatureMatrix {
-  const width = 640;
-  const height = 512;
-  const data = new Float32Array(width * height);
-  data.fill(30);
-  return {
-    width,
-    height,
-    data,
-    min: 30,
-    max: 30,
-    mean: 30,
-    source: "mock",
-    capturedAt: Date.now(),
-  };
 }

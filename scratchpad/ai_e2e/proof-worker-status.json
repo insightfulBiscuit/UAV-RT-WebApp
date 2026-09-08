@@ -1,0 +1,12 @@
+{
+    "running": true,
+    "modality": "rgb",
+    "mode": "mock",
+    "framesSent": 789,
+    "framesReceived": 789,
+    "lastDetectionAt": 1788761806342,
+    "lastAlertAt": 1788761784939,
+    "pid": 18912,
+    "lastError": null,
+    "latencyMsP50": 0
+}

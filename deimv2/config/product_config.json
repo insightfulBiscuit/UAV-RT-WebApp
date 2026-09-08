@@ -1,0 +1,44 @@
+{
+  "productName": "H30T Live Monitor",
+  "rtmpMode": "vps",
+  "display": "web",
+  "webPort": 8765,
+  "httpPort": 8010,
+  "udpPort": 5005,
+  "pcIp": "10.0.0.241",
+  "inferenceStream": "both",
+  "inferenceRegion": "full",
+  "deimConfig": "configs/deimv2/deimv2_dinov3_s_dji_10class.yml",
+  "deimRgbWeight": "new_models/deimv2_dinov3_s_dji_rgb_50e_best_stg2.pth",
+  "deimIrWeight": "new_models/deimv2_dinov3_s_dji_ir_50e_best_stg2.pth",
+  "modelProfiles": {
+    "stableS": {
+      "deimConfig": "configs/deimv2/deimv2_dinov3_s_dji_10class.yml",
+      "deimRgbWeight": "new_models/deimv2_dinov3_s_dji_rgb_50e_best_stg2.pth",
+      "deimIrWeight": "new_models/deimv2_dinov3_s_dji_ir_50e_best_stg2.pth"
+    },
+    "largeL": {
+      "deimConfig": "configs/deimv2/deimv2_dinov3_l_dji_10class.yml",
+      "deimRgbWeight": "new_models/deimv2_dinov3_l_dji_fire_60e_v4_best_stg2.pth",
+      "deimIrWeight": "new_models/deimv2_dinov3_l_dji_ir_50e_best_stg2.pth"
+    }
+  },
+  "minInferenceIntervalMs": 0,
+  "detectionHoldMs": 3000,
+  "webOutputFps": 25,
+  "jpegQuality": 65,
+  "alert": {
+    "triggerC": 55,
+    "criticalC": 80,
+    "combustibleC": 60,
+    "personC": 75,
+    "unknownHighC": 90,
+    "unknownExtremeC": 110,
+    "vehicleExtremeC": 110,
+    "cooldownS": 5.1
+  },
+  "startup": {
+    "openBrowser": true,
+    "skipFfprobePreflight": false
+  }
+}

@@ -7,6 +7,10 @@ copied verbatim from H30T's config/product_config.json.
 """
 from __future__ import annotations
 
+import json
+import os
+import sys
+
 CLASSES = [
     "vehicle",
     "tree",
@@ -37,7 +41,7 @@ CLASS_COLORS = {
 
 # Copied verbatim from H30T's product_config.json — same thresholds so
 # behavior matches your coworker's rig on the same drone.
-ALERT_THRESHOLDS = {
+_DEFAULT_ALERT_THRESHOLDS = {
     "triggerC":         55,   # generic "warm" trigger
     "criticalC":        80,   # generic "very hot" escalation
     "combustibleC":     60,   # tree, tent_tarp, plastic_waste, dry_grass
@@ -47,6 +51,32 @@ ALERT_THRESHOLDS = {
     "vehicleExtremeC":  110,  # vehicle "engine on fire" territory
     "cooldownS":        5.1,  # re-alert cooldown per (class, box) key
 }
+
+
+def _load_thresholds() -> dict:
+    """Merge user overrides from AI_THRESHOLDS env (JSON) on top of defaults.
+
+    The Node backend serializes the effective thresholds (defaults +
+    server/config/thresholds.json) and passes them here so we don't need to
+    read the file from Python.
+    """
+    values = dict(_DEFAULT_ALERT_THRESHOLDS)
+    raw = os.environ.get("AI_THRESHOLDS")
+    if not raw:
+        return values
+    try:
+        overrides = json.loads(raw)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[ai] failed to parse AI_THRESHOLDS: {exc}", file=sys.stderr, flush=True)
+        return values
+    if isinstance(overrides, dict):
+        for k, v in overrides.items():
+            if k in values and isinstance(v, (int, float)):
+                values[k] = v
+    return values
+
+
+ALERT_THRESHOLDS = _load_thresholds()
 
 # Which classes get flagged as combustible (uses combustibleC threshold).
 COMBUSTIBLES = {"tree", "tent_tarp", "plastic_waste", "dry_grass"}

@@ -13,6 +13,8 @@ import {
   LuMaximize,
   LuMinimize,
   LuThermometer,
+  LuSettings,
+  LuBellRing,
 } from "react-icons/lu";
 import {
   captureAnchor,
@@ -39,8 +41,11 @@ import {
   type ThermalAnchorStatus,
 } from "../../lib/api";
 import { playWhep, type WhepSession } from "../../lib/whepPlayer";
+import { buildInverseLut } from "../../lib/thermalPalettes";
 import { ThermalMatrixOverlay } from "./ThermalMatrixOverlay";
 import { AiDetectionsOverlay } from "./AiDetectionsOverlay";
+import { ThresholdsPanel } from "./ThresholdsPanel";
+import { NotificationsPanel } from "./NotificationsPanel";
 import { pushAlert } from "../Alerts/AlertToasts";
 import {
   fetchAiWorkerStatus,
@@ -70,10 +75,6 @@ type CameraTile = {
 
 /* ---- Tile model ---- */
 
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
 function prettyLensLabel(lens: LensKind): string {
   switch (lens) {
     case "ir":
@@ -87,9 +88,8 @@ function prettyLensLabel(lens: LensKind): string {
   }
 }
 
-function sourceLabelOf(info: DeviceInfo, kind: SourceKind): string {
-  const base = info.callsign || info.device_model?.name || info.sn;
-  return kind === "dock" ? `${base} (Dock)` : base;
+function sourceLabelOf(info: DeviceInfo, _kind: SourceKind): string {
+  return info.callsign || info.device_model?.name || info.sn;
 }
 
 const HIDDEN_CAMERAS = new Set(["176-0-0"]);
@@ -165,30 +165,21 @@ function makeDockTiles(
       },
     ];
   }
+  // Akamai relays a single dock stream (indoor camera). We used to expose a
+  // second placeholder tile to flip the dock's outdoor camera on, but that
+  // stream isn't published anywhere — see server/config/akamai-streams.json.
   const activePos: DockPosition =
     primary.camera_position === "outdoor" ? "outdoor" : "indoor";
-  const otherPos: DockPosition = activePos === "indoor" ? "outdoor" : "indoor";
   return [
     {
       key: `${sn}:${primary.camera_index}:${activePos}`,
       sn,
       cameraIndex: primary.camera_index,
       sourceLabel,
-      cameraLabel: capitalize(activePos),
+      cameraLabel: "Camera",
       online,
       kind: "dock",
       dockPosition: activePos,
-    },
-    {
-      key: `${sn}:${primary.camera_index}:${otherPos}`,
-      sn,
-      cameraIndex: primary.camera_index,
-      sourceLabel,
-      cameraLabel: capitalize(otherPos),
-      online,
-      kind: "dock",
-      dockPosition: otherPos,
-      isPlaceholder: true,
     },
   ];
 }
@@ -237,18 +228,68 @@ type ThermalReading = {
   source: "mqtt" | "approx";
 };
 
-function approximateTemp(
-  r: number,
-  g: number,
-  b: number,
+/**
+ * Reverse the DJI palette LUT — same pipeline the matrix-overlay Web Worker
+ * uses. Given the palette id and range (min/max in °C), turn a pixel's RGB
+ * back into a temperature.
+ *
+ * Result: the click probe now agrees with the matrix overlay's stats within
+ * quantization error. Note the accuracy ceiling is still the palette
+ * inversion itself (~±5-10 °C on live video because DJI applies spatial DDE
+ * before the palette maps to color) — for the "real" ±0.1 °C you need an
+ * R-JPEG anchor.
+ */
+const invLutCache = new Map<number, Uint8Array>();
+function getInverseLutCached(paletteId: number): Uint8Array {
+  let lut = invLutCache.get(paletteId);
+  if (!lut) {
+    lut = buildInverseLut(paletteId);
+    invLutCache.set(paletteId, lut);
+  }
+  return lut;
+}
+
+/**
+ * Sample an averaged temperature from a small window around (px, py) in the
+ * source video frame. Averaging over ~5×5 pixels squashes H.264 compression
+ * ringing that otherwise makes single-pixel probes jump by whole °C between
+ * clicks on visually-identical spots.
+ */
+function paletteInvertedTemp(
+  ctx: CanvasRenderingContext2D,
+  px: number,
+  py: number,
+  frameW: number,
+  frameH: number,
+  paletteId: number,
   tMin: number,
-  tMax: number
+  tMax: number,
 ): number {
-  const hot = r / 255;
-  const cold = b / 255;
-  const mid = g / 255;
-  const intensity = Math.max(0, Math.min(1, hot * 0.6 + mid * 0.25 - cold * 0.15));
-  return tMin + intensity * (tMax - tMin);
+  const halfKernel = 3; // 7x7 window
+  const x0 = Math.max(0, Math.floor(px) - halfKernel);
+  const y0 = Math.max(0, Math.floor(py) - halfKernel);
+  const x1 = Math.min(frameW, Math.floor(px) + halfKernel + 1);
+  const y1 = Math.min(frameH, Math.floor(py) + halfKernel + 1);
+  const w = Math.max(1, x1 - x0);
+  const h = Math.max(1, y1 - y0);
+  const data = ctx.getImageData(x0, y0, w, h).data;
+
+  const inv = getInverseLutCached(paletteId);
+  const range = Math.max(1e-6, tMax - tMin);
+  // Take the 90th-percentile temp in the window — biases toward the hottest
+  // corner of the sample so clicking on a small hot dot next to cool pixels
+  // still returns the hot value, matching what a person expects "point the
+  // probe at that spot" to mean.
+  const temps: number[] = new Array(w * h);
+  for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+    const r = data[i] >> 3;
+    const g = data[i + 1] >> 3;
+    const b = data[i + 2] >> 3;
+    const idx = inv[(r << 10) | (g << 5) | b];
+    temps[p] = tMin + (idx / 255) * range;
+  }
+  temps.sort((a, b) => a - b);
+  return temps[Math.min(temps.length - 1, Math.floor(temps.length * 0.9))];
 }
 
 /* ---- Main Live view ---- */
@@ -277,18 +318,27 @@ export default function Livestream() {
   const [matrixOn, setMatrixOn] = useState(true);
   const [alertThreshold, setAlertThreshold] = useState(60);
   const [paletteId, setPaletteId] = useState(2); // DJI iron_red (thermal_current_palette_style=2)
+  const paletteSeededRef = useRef(false);
   const [matrixStats, setMatrixStats] = useState<{
     min: number; max: number; mean: number; calibA: number; calibB: number;
   } | null>(null);
   const [anchorStatus, setAnchorStatus] = useState<ThermalAnchorStatus | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [aiTap, setAiTap] = useState<AiTapStatus | null>(null);
-  const [aiTapBusy, setAiTapBusy] = useState(false);
   const [videoAspect, setVideoAspect] = useState<string>("16 / 9");
   const [osdRange, setOsdRange] = useState<{ min: number; max: number } | null>(null);
   const [osdPaletteId, setOsdPaletteId] = useState<number | null>(null);
   const [aiWorker, setAiWorker] = useState<AiWorkerStatus | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [activeMediamtxPath, setActiveMediamtxPath] = useState<string | null>(null);
+  // Once a user manually stops AI, don't auto-restart it until they toggle it
+  // back on. Sticky for the lifetime of the page — a refresh re-enables auto.
+  const aiUserDisabledRef = useRef(false);
+  // Prevents the auto-effect from firing repeated start/stop cycles when the
+  // polled aiWorker/aiTap state races with an in-flight API call.
+  const aiAutoBusyRef = useRef(false);
 
   const loadDevices = useCallback(async (signal?: AbortSignal) => {
     setRefreshingDevices(true);
@@ -349,7 +399,11 @@ export default function Livestream() {
   }, [tiles, selectedKey]);
 
   const active = tiles.find((t) => t.key === selectedKey) ?? null;
-  const canStream = !!(active && active.online && active.cameraIndex && !active.isPlaceholder);
+  // Placeholder marker is a UX hint that a drone lens isn't the *currently
+  // selected* one on the drone — but Akamai relays all three M4TD lenses in
+  // parallel, so the WHEP stream is available regardless of drone-side state.
+  // Streaming is gated purely on device online + camera identity here.
+  const canStream = !!(active && active.online && active.cameraIndex);
 
   // Auto-fit the featured video's aspect ratio to whatever the source
   // actually delivers. FH2 Share's thermal encoder pushes 960×720 (4:3);
@@ -399,21 +453,22 @@ export default function Livestream() {
         // Look up the Akamai relay for THIS tile. FH2's Share feature pushes
         // to our operator-owned MediaMTX; our local MediaMTX pulls from there
         // on demand and re-publishes as WHEP for the browser.
-        const s = await fetchAkamaiForTile({
+        const akamai = await fetchAkamaiForTile({
           aircraftSn: active.kind === "drone" ? active.sn : undefined,
           gatewaySn: active.kind === "dock" ? active.sn : undefined,
           cameraIndex: active.cameraIndex,
           lens: active.lens,
           position: active.dockPosition,
-        }).then((a) => ({ whepUrl: a.whepUrl }));
+        });
         if (cancelled) return;
-        if (!s.whepUrl) {
+        if (!akamai.whepUrl) {
           throw new Error(
             "WHEP_PLAYBACK_URL_BASE not configured on the server — set it in server/.env to point at MediaMTX.",
           );
         }
+        setActiveMediamtxPath(akamai.mediamtxPath ?? null);
         setStatus("connecting");
-        const session = await playWhep(s.whepUrl, container, (err) => {
+        const session = await playWhep(akamai.whepUrl, container, (err) => {
           setStreamError(err.message);
           setStatus("error");
         });
@@ -477,7 +532,7 @@ export default function Livestream() {
     [loadDevices]
   );
 
-  const onTileClick = (tile: CameraTile) => {
+  const onTileClick = (tile: CameraTile, _evt?: React.MouseEvent) => {
     if (tile.isPlaceholder && tile.dockPosition) return void handleSwitchDock(tile);
     if (tile.isPlaceholder && tile.lens && tile.lens !== "normal")
       return void handleSwitchLens(tile);
@@ -509,6 +564,65 @@ export default function Livestream() {
 
   const activeIsThermal = active?.lens === "ir";
 
+  // AI auto-follows the active tile: when the user views a streaming camera,
+  // start the tap + worker on that stream (IR modality for thermal, RGB for
+  // wide/zoom). When they leave the tile OR manually turn AI off, stop
+  // everything. The auto-busy ref + snapshot-fetch pattern prevents the 2.5 s
+  // poll from racing with an in-flight model warm-up (~35 s).
+  useEffect(() => {
+    if (aiUserDisabledRef.current) return;
+    if (aiBusy) return;
+    if (aiAutoBusyRef.current) return;
+    const shouldRun = !!(canStream && active && activeMediamtxPath);
+    let cancelled = false;
+    aiAutoBusyRef.current = true;
+
+    void (async () => {
+      try {
+        if (shouldRun && active && activeMediamtxPath) {
+          const streamKey = activeMediamtxPath;
+          const modality: "rgb" | "ir" = active.lens === "ir" ? "ir" : "rgb";
+          const tap = await fetchAiTapStatus();
+          if (cancelled) return;
+          if (!tap.running || tap.streamKey !== streamKey) {
+            const s = await startAiTap(streamKey);
+            if (!cancelled) setAiTap(s);
+          } else {
+            setAiTap(tap);
+          }
+          if (cancelled) return;
+          const worker = await fetchAiWorkerStatus();
+          if (cancelled) return;
+          if (!worker.running || worker.modality !== modality) {
+            const w = await startAiWorker({ modality });
+            if (!cancelled) setAiWorker(w);
+          } else {
+            setAiWorker(worker);
+          }
+        } else {
+          const worker = await fetchAiWorkerStatus();
+          if (cancelled) return;
+          if (worker.running) {
+            const w = await stopAiWorker();
+            if (!cancelled) setAiWorker(w);
+          } else {
+            setAiWorker(worker);
+          }
+          const tap = await fetchAiTapStatus();
+          if (cancelled) return;
+          if (tap.running) {
+            const s = await stopAiTap();
+            if (!cancelled) setAiTap(s);
+          } else {
+            setAiTap(tap);
+          }
+        }
+      } catch { /* poll will surface */ }
+      finally { aiAutoBusyRef.current = false; }
+    })();
+    return () => { cancelled = true; };
+  }, [canStream, active?.key, active?.lens, activeMediamtxPath, aiBusy]);
+
   // When a thermal camera is selected, tell the anchor service which aircraft/camera
   // to shoot photos on. Only sends once per (sn, cameraIndex) change.
   useEffect(() => {
@@ -538,16 +652,19 @@ export default function Livestream() {
     try {
       const running = !!aiWorker?.running;
       if (running) {
+        aiUserDisabledRef.current = true;
         // Stop worker first, then the frame tap.
         await stopAiWorker().then(setAiWorker);
         if (aiTap?.running) await stopAiTap().then(setAiTap);
       } else {
-        const streamKey = `${active.sn}_${active.cameraIndex.replace(/[^A-Za-z0-9_-]/g, "-")}`;
+        aiUserDisabledRef.current = false;
+        const streamKey = activeMediamtxPath
+          ?? `${active.sn}_${active.cameraIndex.replace(/[^A-Za-z0-9_-]/g, "-")}`;
         if (!aiTap?.running) {
           await startAiTap(streamKey).then(setAiTap);
         }
         const modality: "rgb" | "ir" = active.lens === "ir" ? "ir" : "rgb";
-        await startAiWorker({ modality, mode: "auto" }).then(setAiWorker);
+        await startAiWorker({ modality }).then(setAiWorker);
       }
     } catch (e) {
       setSwitchError(`AI toggle failed: ${(e as Error).message}`);
@@ -555,22 +672,6 @@ export default function Livestream() {
       setAiBusy(false);
     }
   }, [aiBusy, active, aiWorker?.running, aiTap?.running]);
-
-  const handleToggleAiTap = useCallback(async () => {
-    if (aiTapBusy || !active) return;
-    setAiTapBusy(true);
-    setSwitchError(null);
-    try {
-      const running = !!aiTap?.running;
-      const streamKey = `${active.sn}_${active.cameraIndex.replace(/[^A-Za-z0-9_-]/g, "-")}`;
-      const next = running ? await stopAiTap() : await startAiTap(streamKey);
-      setAiTap(next);
-    } catch (e) {
-      setSwitchError(`AI tap toggle failed: ${(e as Error).message}`);
-    } finally {
-      setAiTapBusy(false);
-    }
-  }, [aiTap?.running, aiTapBusy, active]);
 
   const handleToggleAuto = useCallback(async () => {
     try {
@@ -608,7 +709,17 @@ export default function Livestream() {
           if (typeof r.min === "number" && typeof r.max === "number" && r.max > r.min) {
             setOsdRange({ min: r.min, max: r.max });
           }
-          if (typeof r.paletteId === "number") setOsdPaletteId(r.paletteId);
+          if (typeof r.paletteId === "number") {
+            setOsdPaletteId(r.paletteId);
+            // Seed the local palette selection ONCE from OSD so the default
+            // matches whatever the drone is currently showing. After that,
+            // the user's dropdown choice wins — we never overwrite it, even
+            // if the drone-side palette changes.
+            if (!paletteSeededRef.current) {
+              paletteSeededRef.current = true;
+              setPaletteId(r.paletteId);
+            }
+          }
         })
         .catch(() => {});
     };
@@ -622,7 +733,6 @@ export default function Livestream() {
 
   const osdMin = osdRange?.min ?? 15;
   const osdMax = osdRange?.max ?? 80;
-  const effectivePaletteId = osdPaletteId ?? paletteId;
 
   const handleThermalClick = useCallback(
     async (evt: React.MouseEvent<HTMLDivElement>) => {
@@ -652,7 +762,10 @@ export default function Livestream() {
         }
       }
 
-      // Fallback: sample video pixel and interpolate against user-set palette range.
+      // Fallback: reverse the palette LUT locally — same math as the matrix
+      // overlay so the probe reading and the "Max" stat agree. Range is taken
+      // from the drone's OSD if available (real radiometric span) and falls
+      // back to the user-set thermalMin/thermalMax only when OSD is silent.
       const video = videoContainerRef.current?.querySelector<HTMLVideoElement>("video");
       if (!video || !video.videoWidth) {
         setSwitchError("Video isn't ready to read yet.");
@@ -669,19 +782,24 @@ export default function Livestream() {
         setSwitchError(`Cross-origin blocked: ${(e as Error).message}`);
         return;
       }
-      const px = ctx.getImageData(
-        Math.floor(relX * canvas.width),
-        Math.floor(relY * canvas.height),
-        1,
-        1
-      ).data;
-      const r = px[0];
-      const g = px[1];
-      const b = px[2];
-      const temp = approximateTemp(r, g, b, thermalMin, thermalMax);
-      setThermalReading({ x: relX, y: relY, r, g, b, temp, source: "approx" });
+      const px = Math.floor(relX * canvas.width);
+      const py = Math.floor(relY * canvas.height);
+      // Prefer OSD range (radiometric truth from the drone) over user
+      // thermalMin/thermalMax which are only useful when OSD is silent.
+      const rangeMin = osdRange?.min ?? thermalMin;
+      const rangeMax = osdRange?.max ?? thermalMax;
+      const temp = paletteInvertedTemp(
+        ctx, px, py, canvas.width, canvas.height, paletteId, rangeMin, rangeMax,
+      );
+      const centerPixel = ctx.getImageData(px, py, 1, 1).data;
+      setThermalReading({
+        x: relX, y: relY,
+        r: centerPixel[0], g: centerPixel[1], b: centerPixel[2],
+        temp,
+        source: "approx",
+      });
     },
-    [thermalMin, thermalMax, mqttStatus, active]
+    [thermalMin, thermalMax, mqttStatus, active, osdRange, paletteId]
   );
 
   return (
@@ -717,26 +835,31 @@ export default function Livestream() {
             type="button"
             title={
               aiWorker?.running
-                ? `AI inferencing (${aiWorker.modality} · ${aiWorker.mode} · ${aiWorker.latencyMsP50 ?? "?"}ms). Click to stop.`
+                ? `DEIMv2 running (${aiWorker.modality} · ${aiWorker.latencyMsP50 ?? "?"}ms). Click to stop.`
                 : "Start AI object detection on the live stream"
             }
           >
             <LuRadio size={14} className={aiWorker?.running ? "spin" : ""} />
-            AI{aiWorker?.running ? ` · ${aiWorker.framesReceived}` : ""}
+            AI
+            {aiWorker?.running && <span className="ai-live-dot" aria-hidden />}
           </button>
           <button
             className="live-btn refresh"
-            onClick={handleToggleAiTap}
-            disabled={aiTapBusy || !canStream}
+            onClick={() => setSettingsOpen(true)}
             type="button"
-            title={
-              aiTap?.running
-                ? `AI tap running (${aiTap.frameCount} frames). Click to stop.`
-                : "Start server-side ffmpeg frame tap for AI inference"
-            }
+            title="Alert thresholds · thermal matrix · AI tap"
+            aria-label="Open settings"
           >
-            <LuRadio size={14} className={aiTap?.running ? "spin" : ""} />
-            AI tap{aiTap?.running ? ` · ${aiTap.frameCount}f` : ""}
+            <LuSettings size={14} />
+          </button>
+          <button
+            className="live-btn refresh"
+            onClick={() => setNotificationsOpen(true)}
+            type="button"
+            title="ntfy subscriber topics"
+            aria-label="Manage notification topics"
+          >
+            <LuBellRing size={14} />
           </button>
           <StatusPill status={status} />
         </div>
@@ -786,138 +909,69 @@ export default function Livestream() {
       )}
 
       {activeIsThermal && (
-        <div className="matrix-panel">
-          <div className="matrix-panel-title">
-            <LuThermometer size={14} /> Temperature matrix
-            <span
-              className={`matrix-source ${
-                anchorStatus?.latest?.source === "sdk"
-                  ? "sdk"
-                  : anchorStatus?.latest?.source === "mock"
-                  ? "mock"
-                  : "none"
-              }`}
+        <div className="matrix-anchor-bar">
+          <LuThermometer size={13} />
+          <span>Anchor:</span>
+          <span
+            className={`matrix-source ${
+              anchorStatus?.latest?.source === "sdk" ? "sdk" : "none"
+            }`}
+          >
+            {anchorStatus?.latest?.source === "sdk" ? "SDK" : "None"}
+          </span>
+          {anchorStatus?.latest && (
+            <span className="matrix-anchor-age">
+              {Math.round((Date.now() - anchorStatus.latest.capturedAt) / 1000)}s ago
+            </span>
+          )}
+          <label className="matrix-toggle">
+            <input
+              type="checkbox"
+              checked={!!anchorStatus?.autoCapture}
+              onChange={handleToggleAuto}
+            />
+            Auto-anchor
+          </label>
+          <label className="matrix-toggle" title="Time between anchor captures. DJI photo round-trip is 4-8s so short intervals queue.">
+            every
+            <select
+              value={anchorStatus?.intervalMs ?? 2000}
+              onChange={(e) => void handleSetInterval(Number(e.target.value))}
+              style={{ marginLeft: 4 }}
             >
-              {anchorStatus?.latest?.source === "sdk"
-                ? "SDK anchor"
-                : anchorStatus?.latest?.source === "mock"
-                ? "MOCK anchor"
-                : "No anchor"}
-            </span>
-            <span style={{ marginLeft: "auto", display: "inline-flex", gap: 8 }}>
-              <label className="matrix-toggle">
-                <input
-                  type="checkbox"
-                  checked={matrixOn}
-                  onChange={(e) => setMatrixOn(e.target.checked)}
-                />
-                Hot-region overlay
-              </label>
-              <label className="matrix-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!anchorStatus?.autoCapture}
-                  onChange={handleToggleAuto}
-                />
-                Auto-anchor
-              </label>
-              <label className="matrix-toggle" title="Time between anchor captures. DJI photo round-trip is 4-8s so short intervals queue.">
-                every
-                <select
-                  value={anchorStatus?.intervalMs ?? 2000}
-                  onChange={(e) => void handleSetInterval(Number(e.target.value))}
-                  style={{ marginLeft: 4 }}
-                >
-                  <option value={2000}>2 s</option>
-                  <option value={5000}>5 s</option>
-                  <option value={8000}>8 s</option>
-                  <option value={15000}>15 s</option>
-                  <option value={30000}>30 s</option>
-                </select>
-              </label>
-              <button
-                className="live-btn refresh"
-                onClick={handleCaptureAnchor}
-                disabled={capturing}
-                type="button"
-              >
-                {capturing ? "Capturing…" : "Capture anchor"}
-              </button>
-            </span>
-          </div>
-
-          <div className="matrix-stat hot">
-            DJI Max (OSD)
-            <strong>
-              {osdRange ? `${osdRange.max.toFixed(1)}°C` : "—"}
-            </strong>
-          </div>
-          <div className="matrix-stat ok">
-            DJI Min (OSD)
-            <strong>
-              {osdRange ? `${osdRange.min.toFixed(1)}°C` : "—"}
-            </strong>
-          </div>
-          <div className="matrix-stat">
-            Inversion mean
-            <strong>
-              {matrixStats && Number.isFinite(matrixStats.mean)
-                ? `${matrixStats.mean.toFixed(1)}°C`
-                : "—"}
-            </strong>
-          </div>
-          <div className="matrix-stat warn">
-            Alert &gt;
-            <strong>
-              <input
-                type="number"
-                value={alertThreshold}
-                onChange={(e) => setAlertThreshold(Number(e.target.value) || 0)}
-                style={{
-                  width: 72,
-                  background: "transparent",
-                  border: "1px solid var(--border-subtle)",
-                  borderRadius: 4,
-                  color: "inherit",
-                  padding: "2px 6px",
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              />
-              °C
-            </strong>
-          </div>
-          <div className="matrix-stat">
-            Palette
-            <strong>
-              <select
-                value={paletteId}
-                onChange={(e) => setPaletteId(Number(e.target.value))}
-                style={{ width: "100%" }}
-              >
-                <option value={0}>white_hot</option>
-                <option value={2}>iron_red</option>
-                <option value={9}>black_hot</option>
-              </select>
-            </strong>
-          </div>
-          <div className="matrix-stat">
-            Calibration
-            <strong style={{ fontSize: "0.78rem" }}>
-              {matrixStats
-                ? `y = ${matrixStats.calibA.toFixed(2)}·x + ${matrixStats.calibB.toFixed(1)}`
-                : "y = 1·x + 0"}
-            </strong>
-          </div>
-          <div className="matrix-stat">
-            Anchor age
-            <strong>
-              {anchorStatus?.latest
-                ? `${Math.round((Date.now() - anchorStatus.latest.capturedAt) / 1000)}s`
-                : "—"}
-            </strong>
-          </div>
+              <option value={2000}>2 s</option>
+              <option value={5000}>5 s</option>
+              <option value={8000}>8 s</option>
+              <option value={15000}>15 s</option>
+              <option value={30000}>30 s</option>
+            </select>
+          </label>
+          <button
+            className="live-btn refresh"
+            onClick={handleCaptureAnchor}
+            disabled={capturing}
+            type="button"
+          >
+            {capturing ? "Capturing…" : "Capture anchor"}
+          </button>
         </div>
       )}
+
+      {settingsOpen && (
+        <ThresholdsPanel
+          onClose={() => setSettingsOpen(false)}
+          activeIsThermal={activeIsThermal}
+          matrixOn={matrixOn}
+          setMatrixOn={setMatrixOn}
+          alertThreshold={alertThreshold}
+          setAlertThreshold={setAlertThreshold}
+          paletteId={paletteId}
+          setPaletteId={setPaletteId}
+          osdPaletteId={osdPaletteId}
+          aiTapStreamKey={activeMediamtxPath}
+        />
+      )}
+      {notificationsOpen && <NotificationsPanel onClose={() => setNotificationsOpen(false)} />}
 
       {switchError && <div className="ml-error">{switchError}</div>}
       {streamError && <div className="ml-error">Stream error: {streamError}</div>}
@@ -929,7 +983,6 @@ export default function Livestream() {
         </div>
       ) : (
         <div className="cockpit-layout">
-          {/* Featured stream: 16:9 */}
           <div
             ref={videoWrapRef}
             className="cockpit-featured"
@@ -951,7 +1004,7 @@ export default function Livestream() {
             {activeIsThermal && canStream && matrixOn && (
               <ThermalMatrixOverlay
                 videoContainerRef={videoContainerRef}
-                paletteId={effectivePaletteId}
+                paletteId={paletteId}
                 osdMin={osdMin}
                 osdMax={osdMax}
                 threshold={alertThreshold}
@@ -995,6 +1048,14 @@ export default function Livestream() {
                 <span className="cockpit-featured-sub">{active.cameraLabel}</span>
               </div>
             )}
+            {activeIsThermal && (
+              <div className="cockpit-thermal-stats" aria-hidden>
+                <span>Max <strong>{osdRange ? `${osdRange.max.toFixed(1)}°C` : "—"}</strong></span>
+                <span>Min <strong>{osdRange ? `${osdRange.min.toFixed(1)}°C` : "—"}</strong></span>
+                <span>Mean <strong>{matrixStats && Number.isFinite(matrixStats.mean) ? `${matrixStats.mean.toFixed(1)}°C` : "—"}</strong></span>
+                <span>Alert <strong>{alertThreshold}°C</strong></span>
+              </div>
+            )}
             {status === "live" && (
               <span className="cockpit-featured-live">
                 <span className="live-dot" /> LIVE
@@ -1014,6 +1075,7 @@ export default function Livestream() {
             )}
           </div>
 
+
           {/* Right rail */}
           <aside className="cockpit-rail">
             <div className="cockpit-rail-header">Cameras</div>
@@ -1027,7 +1089,7 @@ export default function Livestream() {
                   className={`rail-tile${isActive ? " active" : ""}${
                     tile.isPlaceholder ? " placeholder" : ""
                   }${tile.online ? "" : " offline"}`}
-                  onClick={() => onTileClick(tile)}
+                  onClick={(evt) => onTileClick(tile, evt)}
                   disabled={!canPick && !tile.isPlaceholder}
                   title={
                     tile.isPlaceholder && tile.dockPosition
@@ -1101,3 +1163,4 @@ function StatusPill({ status }: { status: StreamStatus }) {
     </span>
   );
 }
+

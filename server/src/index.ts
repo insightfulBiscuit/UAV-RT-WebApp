@@ -22,6 +22,14 @@ import { isSdkAvailable } from "./thermalSdkService.js";
 import { aiFrameTap } from "./aiFrameTap.js";
 import { aiWorker } from "./aiWorker.js";
 import { akamaiRegistry } from "./akamaiConfig.js";
+import {
+  DEFAULT_THRESHOLDS,
+  getEffectiveThresholds,
+  getOverrides,
+  resetOverrides,
+  setOverrides,
+} from "./thresholdsService.js";
+import { ntfy } from "./ntfyService.js";
 
 const app = express();
 app.use(express.json());
@@ -349,17 +357,75 @@ app.get("/api/ai/worker/status", (_req, res) => res.json(aiWorker.status()));
 
 app.post("/api/ai/worker/start", wrap(async (req) => {
   const modality = String(req.body?.modality ?? "rgb").toLowerCase();
-  const mode = String(req.body?.mode ?? "auto").toLowerCase();
   if (modality !== "rgb" && modality !== "ir") {
     throw new Fh2Error(400, -1, "modality must be 'rgb' or 'ir'");
   }
-  if (!["auto", "real", "mock"].includes(mode)) {
-    throw new Fh2Error(400, -1, "mode must be one of auto | real | mock");
-  }
-  return aiWorker.start(modality as "rgb" | "ir", mode as "auto" | "real" | "mock");
+  return aiWorker.start(modality as "rgb" | "ir");
 }));
 
 app.post("/api/ai/worker/stop", (_req, res) => res.json(aiWorker.stop()));
+
+// ---- Alert thresholds ----
+
+app.get("/api/ai/thresholds", (_req, res) => {
+  res.json({
+    effective: getEffectiveThresholds(),
+    overrides: getOverrides(),
+    defaults: DEFAULT_THRESHOLDS,
+  });
+});
+
+app.put("/api/ai/thresholds", wrap(async (req) => {
+  const overrides = setOverrides(req.body ?? {});
+  aiWorker.restart();
+  return { overrides, effective: getEffectiveThresholds(), defaults: DEFAULT_THRESHOLDS };
+}));
+
+app.post("/api/ai/thresholds/reset", wrap(async () => {
+  resetOverrides();
+  aiWorker.restart();
+  return { overrides: {}, effective: getEffectiveThresholds(), defaults: DEFAULT_THRESHOLDS };
+}));
+
+// ---- ntfy notifications ----
+
+app.get("/api/notifications/status", (_req, res) => {
+  res.json({
+    configured: ntfy.configured(),
+    primary: ntfy.primaryUrl(),
+    topics: ntfy.listTopics(),
+  });
+});
+
+app.post("/api/notifications/test", wrap(async (req) => {
+  const urlOverride = typeof req.body?.url === "string" ? req.body.url : undefined;
+  return await ntfy.sendRaw({
+    title: "UAV-RT test",
+    body: "ntfy pipeline reachable — you're wired up.",
+    priority: "default",
+    tags: ["white_check_mark"],
+    click: process.env.NTFY_LINK || "http://localhost:5173/live",
+    urlOverride,
+  });
+}));
+
+app.post("/api/notifications/topics", wrap(async (req) => {
+  const url = String(req.body?.url ?? "");
+  const label = typeof req.body?.label === "string" ? req.body.label : undefined;
+  if (!url) throw new Fh2Error(400, -1, "url required");
+  try {
+    const topics = ntfy.addTopic(url, label);
+    return { topics };
+  } catch (e) {
+    throw new Fh2Error(400, -1, (e as Error).message);
+  }
+}));
+
+app.delete("/api/notifications/topics", wrap(async (req) => {
+  const url = String(req.query.url ?? req.body?.url ?? "");
+  if (!url) throw new Fh2Error(400, -1, "url required");
+  return { topics: ntfy.removeTopic(url) };
+}));
 
 app.get("/api/tasks", requireCfg, wrap(async (req) => {
   const sn = String(req.query.sn ?? "");

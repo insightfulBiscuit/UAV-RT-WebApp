@@ -1,98 +1,57 @@
 # `ai-integration-e2e`
 
-End-to-end test of the AI inference pipeline. Uses `AI_MODE=mock` so it runs
-without CUDA / weights — validates plumbing on any dev machine.
+End-to-end test of the real DEIMv2 inference pipeline. No mock exists —
+the worker either runs the real detector on CUDA or refuses to start.
 
 ## Prereqs
 
 - API + Vite + MediaMTX all up
-- Something publishing to the M4TD Wide path (FH2 Share, or ffmpeg test pattern)
-- Python 3.10+ on PATH
-- `pip install numpy opencv-python-headless` on the Python that Node will spawn
+- Something publishing to an RTMP path — real FH2 Share stream, or a local
+  ffmpeg test pattern via `scripts\ai-e2e-test-source.ps1`
+- Python 3.12 on PATH (Windows: `python`) with the DEIMv2 dependencies:
+  `torch==2.5.1 torchvision==0.20.1 (cu124)`, `numpy`, `opencv-python-headless`,
+  `pyyaml`, `transformers`, `faster-coco-eval`, `scipy`, `tensorboard`, `calflops`
+- CUDA-capable GPU (Pascal/Volta/Turing/Ampere/Ada), driver >= 525
+- The H30T delivery folder at `deimv2/` in the repo root (see `.gitignore`
+  for what's ignored; weights and SDK binaries live there but are not tracked)
 
-## Steps
+## Windows quickstart
 
-### 1. Confirm the pipeline compiles and boots
+```powershell
+# 1. Start MediaMTX + API + Vite
+.\scripts\start-dev.ps1
 
-```bash
-curl -s http://localhost:4000/api/ai/worker/status | python3 -m json.tool
+# 2. Publish a local test pattern (leave running in its own window)
+.\scripts\ai-e2e-test-source.ps1
+
+# 3. Confirm the pipeline booted
+Invoke-RestMethod http://localhost:4000/api/ai/worker/status | ConvertTo-Json
+
+# 4. Start the frame tap on the 'aitest' stream key
+Invoke-RestMethod -Method Post http://localhost:4000/api/ai/tap/start `
+  -ContentType 'application/json' -Body '{"streamKey":"aitest"}'
+
+# 5. Start the DEIMv2 worker (RGB weights; use "ir" for thermal tiles)
+Invoke-RestMethod -Method Post http://localhost:4000/api/ai/worker/start `
+  -ContentType 'application/json' -Body '{"modality":"rgb"}'
+
+# 6. Poll status — first frame lands ~30-40 s after start (model warmup)
+Invoke-RestMethod http://localhost:4000/api/ai/worker/status | ConvertTo-Json
 ```
 
-Expected: `{"running": false, "modality": "rgb", ...}`.
+Then open http://localhost:5173/live and pick a tile. Bounding boxes render
+on top of the video within a couple frames of the worker warming up.
 
-### 2. Publish something to feed the tap
+## Expected status fields
 
-If FH2 is already pushing M4TD Wide, skip this. Otherwise:
-
-```bash
-ssh root@172.232.174.165 "grep M4TD_WIDE_PUB_PW ~/.mediamtx_pws"
-ffmpeg -re -f lavfi -i "testsrc2=size=640x480:rate=15" -c:v libx264 -preset ultrafast \
-  -f flv "rtmp://172.232.174.165:1935/live/m4td_wide?user=m4td_wide_pub&pass=<pw>"
-```
-
-### 3. Open the browser, click M4TD Wide, click "AI" button
-
-http://localhost:5173/live → click M4TD Wide tile → click the new **AI** button in
-the header (spinning icon means it's active). This chain-starts:
-
-1. The RTMP frame tap (`aiFrameTap`) if not already running
-2. The Python worker (`inference_worker.py` with `AI_MODE=auto` → mock on Mac)
-
-The button label should transition: `AI` → `AI · 3` → `AI · 12` (frame count).
-
-### 4. Verify detection boxes render
-
-Bounding boxes should appear on the video within ~2 seconds. Each box shows
-`class · conf%`. On the mock detector these will be nonsense classes (person,
-vehicle, fire, tree) drifting slowly across random positions.
-
-### 5. Verify alerts fire
-
-Any `fire` or `smoke` mock detection immediately triggers a red **toast pop-up**
-in the top-right corner. It auto-dismisses after 8s. Real classes with
-temperature triggers (person > 75°C, etc.) require the palette-inversion
-overlay to attach `temp_c` — not exercised in mock.
-
-### 6. Verify status
-
-```bash
-curl -s http://localhost:4000/api/ai/worker/status | python3 -m json.tool
-```
-
-Expected fields worth checking:
 - `running: true`
-- `framesSent > 0` and `framesReceived > 0` (matched within a couple of frames)
-- `latencyMsP50` around 5-20 ms for mock (would be 30-80 on CUDA-small model)
-- `lastDetectionAt` recently updated
-- `lastAlertAt` populated if a mock `fire`/`smoke` fired
+- `modality: "rgb"` or `"ir"`
+- `framesSent > 0` and `framesReceived` matched within a few frames
+- `latencyMsP50` around **30-80 ms** on a small-model / Pascal GPU
+- `lastDetectionAt` populated
+- `lastAlertAt` populated once a `fire` / `smoke` class detection persists
+  across the 3-frame hold window
 
-### 7. Stop the AI
-
-Click the AI button again. Backend stops both the tap and the Python subprocess.
-Status flips back to `running: false`.
-
-## Switching to real DEIMv2 (CUDA host)
-
-After following the install steps in `ai_worker/README.md`:
-
-```bash
-export DEIM_ROOT=/opt/deimv2
-export DEIM_WEIGHT_IR=/opt/deimv2/new_models/deimv2_dinov3_s_dji_ir_50e_best_stg2.pth
-export DEIM_WEIGHT_RGB=/opt/deimv2/new_models/deimv2_dinov3_s_dji_rgb_50e_best_stg2.pth
-export AI_MODE=real
-# restart the API server so it inherits the env
-```
-
-Then start the AI button on a real (M4TD Thermal or Wide) tile with actual drone
-video. Detections should follow real objects.
-
-## Files added/changed for this test
-
-- `ai_worker/` — whole subtree
-- `server/src/aiWorker.ts` — spawns Python, pipes frames, reads detections
-- `server/src/index.ts` — 3 routes: `/api/ai/worker/{status,start,stop}`
-- `src/lib/api.ts` — AI types + fetchers
-- `src/components/Livestream/AiDetectionsOverlay.tsx` — canvas box overlay
-- `src/components/Livestream/Livestream.tsx` — AI button + overlay wiring
-- `src/components/Alerts/AlertToasts.tsx` + `.css` — toast popups
-- `src/App.tsx` — mount `<AlertToasts />`
+If the worker fails to load (missing weights, missing DEIM_ROOT, no CUDA),
+it exits and `lastError` in the status surfaces the traceback. The frontend
+button flips back to idle. There is intentionally no silent fallback.

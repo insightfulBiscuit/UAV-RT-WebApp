@@ -2,27 +2,32 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
 
 /**
- * ffmpeg-driven RTMP frame tap. Consumes the same RTMP stream MediaMTX is
- * ingesting from FH2 and emits raw BGR24 frames at a target FPS/resolution
- * ready to hand to a Python AI worker or an in-process ONNX runtime later.
+ * ffmpeg-driven RTMP frame tap. Consumes the same stream MediaMTX is
+ * publishing and emits raw BGR24 frames at a target FPS/resolution.
  *
- * This is a SCAFFOLD — no inference wired yet. It counts frames and exposes
- * the running state so we can prove the video pipeline works end-to-end
- * before adding the AI worker.
+ * The `start()` argument is an RTMP path key (e.g. "m4td_thermal"). It is
+ * appended to `RTMP_PLAYBACK_URL_BASE` (defaults to `rtmp://localhost:1935`)
+ * to form the pull URL. That base MUST match the actual MediaMTX path layout
+ * — if the base ends in "/live" and the path is at the root, ffmpeg gets a
+ * 404 that it swallows into an EOF loop. We default to the root now so the
+ * standard `paths: { m4td_thermal: ... }` layout Just Works.
  *
- * Required env:
- *   RTMP_PLAYBACK_URL_BASE   e.g. rtmp://localhost:1935/live
- *                            (defaults to RTMP_PUSH_URL_BASE)
+ * On ffmpeg exit (which happens whenever FH2 Share rotates publishers on the
+ * upstream RTMP source — see the "FH2 Share publisher rotation" section of
+ * docs/handoff.md), we auto-respawn on a small backoff so the AI pipeline
+ * survives the same hand-off gaps the WHEP player does.
  *
  * Optional env:
- *   FFMPEG_BIN               path to ffmpeg (default: "ffmpeg" in PATH)
- *   FFMPEG_LOG=1             print ffmpeg's stderr to console
+ *   FFMPEG_BIN     path to ffmpeg (default: "ffmpeg" in PATH)
+ *   FFMPEG_LOG=1   print ffmpeg's stderr to console
  */
 
 const FRAME_WIDTH = 640;
 const FRAME_HEIGHT = 480;
 const FRAME_FPS = 5;
 const FRAME_BYTES = FRAME_WIDTH * FRAME_HEIGHT * 3;
+
+const RESPAWN_BACKOFF_MS = 750;
 
 export type TapStatus = {
   running: boolean;
@@ -33,6 +38,7 @@ export type TapStatus = {
   startedAt: number | null;
   ffmpegPid: number | null;
   lastError: string | null;
+  restarts: number;
 };
 
 class AiFrameTap extends EventEmitter {
@@ -43,10 +49,13 @@ class AiFrameTap extends EventEmitter {
   private lastFrameAt: number | null = null;
   private startedAt: number | null = null;
   private lastError: string | null = null;
+  private restarts = 0;
+  private respawnTimer: ReturnType<typeof setTimeout> | null = null;
+  private wantRunning = false;
 
   status(): TapStatus {
     return {
-      running: !!this.child,
+      running: this.wantRunning,
       streamKey: this.streamKey,
       rtmpUrl: this.rtmpUrl,
       frameCount: this.frameCount,
@@ -54,22 +63,43 @@ class AiFrameTap extends EventEmitter {
       startedAt: this.startedAt,
       ffmpegPid: this.child?.pid ?? null,
       lastError: this.lastError,
+      restarts: this.restarts,
     };
   }
 
   start(streamKey: string): TapStatus {
-    if (this.child) this.stop();
+    this.stop();
+    this.wantRunning = true;
+    this.streamKey = streamKey;
+    this.frameCount = 0;
+    this.restarts = 0;
+    this.startedAt = Date.now();
+    this.spawnFfmpeg();
+    return this.status();
+  }
 
-    const base = process.env.RTMP_PLAYBACK_URL_BASE || process.env.RTMP_PUSH_URL_BASE;
-    if (!base) {
-      this.lastError = "RTMP_PLAYBACK_URL_BASE (or RTMP_PUSH_URL_BASE) not set";
-      throw new Error(this.lastError);
+  stop(): TapStatus {
+    this.wantRunning = false;
+    if (this.respawnTimer) { clearTimeout(this.respawnTimer); this.respawnTimer = null; }
+    if (this.child) {
+      try { this.child.kill("SIGTERM"); } catch { /* ignore */ }
     }
-    const rtmpUrl = `${base.replace(/\/+$/, "")}/${streamKey}`;
-    const bin = process.env.FFMPEG_BIN || "ffmpeg";
+    this.child = null;
+    this.streamKey = null;
+    this.rtmpUrl = null;
+    this.startedAt = null;
+    return this.status();
+  }
 
-    // Grab raw BGR24 frames at a fixed size/fps for stable downstream cost.
-    // `-fflags nobuffer` + `-flags low_delay` prioritize latency over quality.
+  private spawnFfmpeg(): void {
+    if (!this.wantRunning || !this.streamKey) return;
+    const base = process.env.RTMP_PLAYBACK_URL_BASE
+      || process.env.RTMP_PUSH_URL_BASE
+      || "rtmp://localhost:1935";
+    const rtmpUrl = `${base.replace(/\/+$/, "")}/${this.streamKey}`;
+    const bin = process.env.FFMPEG_BIN || "ffmpeg";
+    this.rtmpUrl = rtmpUrl;
+
     const args = [
       "-fflags", "nobuffer",
       "-flags", "low_delay",
@@ -83,12 +113,6 @@ class AiFrameTap extends EventEmitter {
 
     const child = spawn(bin, args, { stdio: ["ignore", "pipe", "pipe"] });
     this.child = child;
-    this.streamKey = streamKey;
-    this.rtmpUrl = rtmpUrl;
-    this.frameCount = 0;
-    this.lastFrameAt = null;
-    this.startedAt = Date.now();
-    this.lastError = null;
 
     let buf: Buffer = Buffer.alloc(0);
     child.stdout!.on("data", (chunk: Buffer) => {
@@ -98,7 +122,6 @@ class AiFrameTap extends EventEmitter {
         buf = buf.subarray(FRAME_BYTES);
         this.frameCount++;
         this.lastFrameAt = Date.now();
-        // Emit to any listener — the AI worker will subscribe here.
         this.emit("frame", {
           width: FRAME_WIDTH,
           height: FRAME_HEIGHT,
@@ -112,27 +135,22 @@ class AiFrameTap extends EventEmitter {
 
     child.stderr!.on("data", (d: Buffer) => {
       if (process.env.FFMPEG_LOG === "1") console.log(`[ffmpeg] ${d.toString().trim()}`);
-      // Cache the most-recent error-ish line for status reporting.
       const s = d.toString().trim();
       if (/error|failed|Invalid|Unable/i.test(s)) this.lastError = s.slice(-500);
     });
 
     child.on("exit", (code, signal) => {
-      console.log(`ffmpeg frame tap exited (code=${code} signal=${signal})`);
+      console.log(`[ai_tap] ffmpeg exited (code=${code} signal=${signal})`);
       this.child = null;
-      this.streamKey = null;
-      this.rtmpUrl = null;
+      if (!this.wantRunning) return;
+      // FH2 Share's publisher rotation causes ffmpeg to EOF ~every 10-15s
+      // even when everything is healthy. Auto-respawn to bridge the gap.
+      this.respawnTimer = setTimeout(() => {
+        this.respawnTimer = null;
+        this.restarts++;
+        this.spawnFfmpeg();
+      }, RESPAWN_BACKOFF_MS);
     });
-
-    return this.status();
-  }
-
-  stop(): TapStatus {
-    if (this.child) {
-      try { this.child.kill("SIGTERM"); } catch { /* ignore */ }
-    }
-    this.child = null;
-    return this.status();
   }
 }
 

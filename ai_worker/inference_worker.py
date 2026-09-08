@@ -195,7 +195,7 @@ def main() -> int:
     if modality not in ("rgb", "ir"):
         log(f"AI_MODALITY must be rgb or ir (got {modality!r}); defaulting to rgb")
         modality = "rgb"
-    log(f"[ai] modality={modality} mode={os.environ.get('AI_MODE', 'auto')}")
+    log(f"[ai] modality={modality}")
 
     detector: BaseDetector = build_detector(modality)
     log(f"[ai] detector ready: {type(detector).__name__} ({detector.modality})")

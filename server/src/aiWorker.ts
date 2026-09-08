@@ -4,6 +4,8 @@ import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { aiFrameTap } from "./aiFrameTap.js";
 import { wsHub } from "./wsHub.js";
+import { serializeForWorker as serializeThresholds } from "./thresholdsService.js";
+import { ntfy } from "./ntfyService.js";
 
 /** Find the ai_worker/ directory regardless of cwd. */
 function resolveAiWorkerDir(): string {
@@ -30,7 +32,6 @@ function resolveAiWorkerDir(): string {
 type WorkerStatus = {
   running: boolean;
   modality: "rgb" | "ir";
-  mode: "auto" | "real" | "mock";
   framesSent: number;
   framesReceived: number;
   lastDetectionAt: number | null;
@@ -43,7 +44,6 @@ type WorkerStatus = {
 class AiWorker {
   private child: ChildProcess | null = null;
   private modality: "rgb" | "ir" = "rgb";
-  private mode: "auto" | "real" | "mock" = "auto";
   private framesSent = 0;
   private framesReceived = 0;
   private lastDetectionAt: number | null = null;
@@ -67,7 +67,6 @@ class AiWorker {
     return {
       running: !!this.child,
       modality: this.modality,
-      mode: this.mode,
       framesSent: this.framesSent,
       framesReceived: this.framesReceived,
       lastDetectionAt: this.lastDetectionAt,
@@ -78,22 +77,21 @@ class AiWorker {
     };
   }
 
-  start(modality: "rgb" | "ir", mode: "auto" | "real" | "mock" = "auto"): WorkerStatus {
+  start(modality: "rgb" | "ir"): WorkerStatus {
     if (this.child) this.stop();
     this.modality = modality;
-    this.mode = mode;
     this.framesSent = 0;
     this.framesReceived = 0;
     this.lastError = null;
     this.latencies = [];
     this.inflight = 0;
 
-    const python = process.env.AI_PYTHON || "python3";
+    const python = process.env.AI_PYTHON || (process.platform === "win32" ? "python" : "python3");
     const cwd = resolveAiWorkerDir();
     const env = {
       ...process.env,
       AI_MODALITY: modality,
-      AI_MODE: mode,
+      AI_THRESHOLDS: serializeThresholds(),
     };
 
     const child = spawn(python, ["inference_worker.py"], {
@@ -107,6 +105,14 @@ class AiWorker {
       const line = buf.toString("utf8").trim();
       if (line) console.log(`[ai_worker] ${line}`);
     });
+
+    // Swallow write-EOF etc. on the stdin pipe when the child exits mid-flight
+    // (SIGTERM during restart, model crash). Without this the socket error
+    // bubbles up to the Node process and kills the API server.
+    child.stdin?.on("error", (err) => {
+      this.lastError = `stdin: ${(err as Error).message}`;
+    });
+    child.stdout?.on("error", () => { /* ignore */ });
 
     this.reader = createInterface({ input: child.stdout! });
     this.reader.on("line", (line) => this.onWorkerLine(line));
@@ -124,6 +130,14 @@ class AiWorker {
     // Subscribe to frames.
     this.subscribeFrames();
     return this.status();
+  }
+
+  /** Restart the worker if it's already running (picks up new env). No-op otherwise. */
+  restart(): WorkerStatus {
+    if (!this.child) return this.status();
+    const modality = this.modality;
+    this.stop();
+    return this.start(modality);
   }
 
   stop(): WorkerStatus {
@@ -152,7 +166,7 @@ class AiWorker {
     console.warn(`[ai_worker] scheduling restart in ${delay}ms (attempt ${this.restartAttempt})`);
     this.restartTimer = setTimeout(() => {
       this.restartTimer = null;
-      this.start(this.modality, this.mode);
+      this.start(this.modality);
     }, delay);
   }
 
@@ -232,7 +246,10 @@ class AiWorker {
       if (this.latencies.length > 60) this.latencies.shift();
     }
     if (msg.detections?.length) this.lastDetectionAt = Date.now();
-    if (msg.alerts?.length) this.lastAlertAt = Date.now();
+    if (msg.alerts?.length) {
+      this.lastAlertAt = Date.now();
+      ntfy.ingestAlerts(msg.alerts, this.modality);
+    }
 
     wsHub.broadcast("thermal", {
       type: "ai",

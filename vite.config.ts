@@ -14,6 +14,11 @@ export default defineConfig({
         target: process.env.VITE_API_TARGET ?? 'http://localhost:4000',
         changeOrigin: true,
       },
+      '/ws': {
+        target: process.env.VITE_API_TARGET ?? 'http://localhost:4000',
+        ws: true,
+        changeOrigin: true,
+      },
     },
   },
 })

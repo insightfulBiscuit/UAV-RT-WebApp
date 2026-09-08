@@ -34,20 +34,12 @@
       "source": "rtmp://172.232.174.165:1935/live/m4td_thermal?user=uavrt_all_read&pass=88f3908355cd5ec0bf0c518fe8ec350b9e48056642cdba8e"
     },
     {
-      "id": "dock3_indoor",
-      "label": "Dock 3 Indoor (Akamai)",
-      "match": { "gatewaySn": "8UUXP3800A10MS", "cameraIndex": "165-0-7", "position": "indoor" },
+      "id": "dock3",
+      "label": "Dock 3 (Akamai)",
+      "match": { "gatewaySn": "8UUXP3800A10MS", "cameraIndex": "165-0-7" },
       "whepUrl": "http://localhost:8889/dock3_indoor/whep",
       "mediamtxPath": "dock3_indoor",
       "source": "rtmp://172.232.174.165:1935/live/dock3_indoor?user=uavrt_all_read&pass=88f3908355cd5ec0bf0c518fe8ec350b9e48056642cdba8e"
-    },
-    {
-      "id": "dock3_outdoor",
-      "label": "Dock 3 Outdoor (Akamai)",
-      "match": { "gatewaySn": "8UUXP3800A10MS", "cameraIndex": "165-0-7", "position": "outdoor" },
-      "whepUrl": "http://localhost:8889/dock3_outdoor/whep",
-      "mediamtxPath": "dock3_outdoor",
-      "source": "rtmp://172.232.174.165:1935/live/dock3_outdoor?user=uavrt_all_read&pass=88f3908355cd5ec0bf0c518fe8ec350b9e48056642cdba8e"
     }
   ]
 }

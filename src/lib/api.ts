@@ -41,6 +41,7 @@ export type AiTapStatus = {
   startedAt: number | null;
   ffmpegPid: number | null;
   lastError: string | null;
+  restarts?: number;
 };
 
 export async function fetchAiTapStatus(signal?: AbortSignal): Promise<AiTapStatus> {
@@ -213,7 +214,7 @@ export type ThermalAnchorStatus = {
   intervalMs: number;
   hasAnchor: boolean;
   lastCapturedAt: number | null;
-  lastSource: "sdk" | "mock" | null;
+  lastSource: "sdk" | null;
   aircraftSn: string | null;
   cameraIndex: string;
   sdkAvailable: boolean;
@@ -226,7 +227,7 @@ export type ThermalAnchorStatus = {
     min: number;
     max: number;
     mean: number;
-    source: "sdk" | "mock";
+    source: "sdk";
     preview: number[];
     previewWidth: number;
     previewHeight: number;
@@ -261,7 +262,6 @@ export type AiAlert = AiDetection & {
 export type AiWorkerStatus = {
   running: boolean;
   modality: "rgb" | "ir";
-  mode: "auto" | "real" | "mock";
   framesSent: number;
   framesReceived: number;
   lastDetectionAt: number | null;
@@ -277,7 +277,6 @@ export async function fetchAiWorkerStatus(signal?: AbortSignal): Promise<AiWorke
 
 export async function startAiWorker(params: {
   modality: "rgb" | "ir";
-  mode?: "auto" | "real" | "mock";
 }): Promise<AiWorkerStatus> {
   return json<AiWorkerStatus>(
     await fetch("/api/ai/worker/start", {
@@ -290,6 +289,74 @@ export async function startAiWorker(params: {
 
 export async function stopAiWorker(): Promise<AiWorkerStatus> {
   return json<AiWorkerStatus>(await fetch("/api/ai/worker/stop", { method: "POST" }));
+}
+
+export type ThresholdKey =
+  | "triggerC" | "criticalC" | "combustibleC" | "personC"
+  | "unknownHighC" | "unknownExtremeC" | "vehicleExtremeC" | "cooldownS";
+
+export type ThresholdSettings = {
+  effective: Record<ThresholdKey, number>;
+  overrides: Partial<Record<ThresholdKey, number>>;
+  defaults: Record<ThresholdKey, number>;
+};
+
+export async function fetchThresholds(signal?: AbortSignal): Promise<ThresholdSettings> {
+  return json<ThresholdSettings>(await fetch("/api/ai/thresholds", { signal }));
+}
+
+export async function saveThresholds(
+  overrides: Partial<Record<ThresholdKey, number | null>>,
+): Promise<ThresholdSettings> {
+  return json<ThresholdSettings>(
+    await fetch("/api/ai/thresholds", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(overrides),
+    }),
+  );
+}
+
+export async function resetThresholds(): Promise<ThresholdSettings> {
+  return json<ThresholdSettings>(
+    await fetch("/api/ai/thresholds/reset", { method: "POST" }),
+  );
+}
+
+export type NtfyTopic = { url: string; label?: string };
+
+export type NotificationStatus = {
+  configured: boolean;
+  primary: string | null;
+  topics: NtfyTopic[];
+};
+
+export async function fetchNotificationStatus(signal?: AbortSignal): Promise<NotificationStatus> {
+  return json<NotificationStatus>(await fetch("/api/notifications/status", { signal }));
+}
+
+export async function sendTestNotification(
+  urlOverride?: string,
+): Promise<{ ok: boolean; sent: number; errors: string[] }> {
+  return json(await fetch("/api/notifications/test", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(urlOverride ? { url: urlOverride } : {}),
+  }));
+}
+
+export async function addNtfyTopic(url: string, label?: string): Promise<{ topics: NtfyTopic[] }> {
+  return json(await fetch("/api/notifications/topics", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url, label }),
+  }));
+}
+
+export async function removeNtfyTopic(url: string): Promise<{ topics: NtfyTopic[] }> {
+  return json(await fetch(`/api/notifications/topics?url=${encodeURIComponent(url)}`, {
+    method: "DELETE",
+  }));
 }
 
 export async function fetchThermalOsd(sn: string, signal?: AbortSignal): Promise<ThermalOsdReading> {

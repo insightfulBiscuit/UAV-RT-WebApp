@@ -22,7 +22,7 @@ export type AnchorSummary = {
   min: number;
   max: number;
   mean: number;
-  source: "sdk" | "mock";
+  source: "sdk";
   /** downsampled preview for the UI: 80x64 float32 as regular array */
   preview: number[];
   previewWidth: number;
