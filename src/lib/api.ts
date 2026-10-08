@@ -359,6 +359,166 @@ export async function removeNtfyTopic(url: string): Promise<{ topics: NtfyTopic[
   }));
 }
 
+export type StatusSummary = {
+  ts: number;
+  mqtt: { configured: boolean; connected: boolean; broker: string | null; lastMsgAgeMs: number | null };
+  dock: {
+    sn: string;
+    online: boolean;
+    mode_code: number | null;
+    cover_state: number | null;
+    drone_in_dock: number | null;
+    env_temp: number | null;
+    humidity: number | null;
+    rainfall: number | null;
+    wind_speed: number | null;
+    storage_used_kb: number | null;
+    storage_total_kb: number | null;
+    aircraft_sn: string | null;
+    osdAgeMs: number | null;
+  } | null;
+  aircraft: {
+    sn: string;
+    online: boolean;
+    mode_code: number | null;
+    battery_pct: number | null;
+    height_m: number | null;
+    horizontal_speed: number | null;
+    vertical_speed: number | null;
+    attitude_head: number | null;
+    wind_speed: number | null;
+    wind_direction: number | null;
+    latitude: number | null;
+    longitude: number | null;
+    total_flight_sorties: number | null;
+    total_flight_time_s: number | null;
+    total_flight_distance_m: number | null;
+    osdAgeMs: number | null;
+  } | null;
+  akamai: { total: number; ready: number };
+  ai: {
+    workerRunning: boolean;
+    workerModality: "rgb" | "ir";
+    framesReceived: number;
+    latencyMsP50: number | null;
+    tapRunning: boolean;
+    tapFrameCount: number;
+    lastAlertAt: number | null;
+  };
+  thermal: { sdkAvailable: boolean; hasAnchor: boolean; lastCapturedAt: number | null };
+  ntfy: { configured: boolean; topicCount: number; sentToday: number; lastSentAt: number | null };
+  alerts: { todayCount: number; unreadCount: number };
+  flights: { todayCount: number | null; lastFlightAt: number | null; fh2Available: boolean };
+};
+
+export async function fetchStatusSummary(signal?: AbortSignal): Promise<StatusSummary> {
+  return json<StatusSummary>(await fetch("/api/status/summary", { signal }));
+}
+
+export type NtfySentEntry = {
+  ts: number;
+  title: string;
+  body: string;
+  priority: string;
+  destinations: number;
+  errors: number;
+};
+
+export async function fetchRecentNtfy(signal?: AbortSignal): Promise<{ sends: NtfySentEntry[] }> {
+  return json<{ sends: NtfySentEntry[] }>(await fetch("/api/notifications/recent", { signal }));
+}
+
+export type LogLevel = "debug" | "info" | "warn" | "error";
+
+export type LogEntry = {
+  ts: number;
+  level: LogLevel;
+  source: string;
+  message: string;
+  data?: unknown;
+};
+
+export async function fetchLogs(
+  opts?: { since?: number; limit?: number; level?: LogLevel; source?: string },
+  signal?: AbortSignal,
+): Promise<{ entries: LogEntry[] }> {
+  const qs = new URLSearchParams();
+  if (opts?.since != null) qs.set("since", String(opts.since));
+  if (opts?.limit != null) qs.set("limit", String(opts.limit));
+  if (opts?.level) qs.set("level", opts.level);
+  if (opts?.source) qs.set("source", opts.source);
+  return json<{ entries: LogEntry[] }>(await fetch(`/api/logs?${qs.toString()}`, { signal }));
+}
+
+export type StoredAlert = {
+  id: string;
+  ts: number;
+  modality: "rgb" | "ir";
+  class: string;
+  trigger: string;
+  temp_c: number | null;
+  conf: number;
+  box: [number, number, number, number];
+  color: string;
+  seq: number;
+  mediaId: string | null;
+  photoUrl: string | null;
+  videoUrl: string | null;
+};
+
+export type AlertsListResponse = {
+  alerts: StoredAlert[];
+  ackTs: number;
+  unreadCount: number;
+};
+
+export async function fetchAlerts(
+  opts?: { since?: number; limit?: number },
+  signal?: AbortSignal,
+): Promise<AlertsListResponse> {
+  const qs = new URLSearchParams();
+  if (opts?.since != null) qs.set("since", String(opts.since));
+  if (opts?.limit != null) qs.set("limit", String(opts.limit));
+  const url = qs.toString() ? `/api/alerts?${qs.toString()}` : "/api/alerts";
+  return json<AlertsListResponse>(await fetch(url, { signal }));
+}
+
+export async function ackAllAlerts(): Promise<{ ackTs: number; unreadCount: number }> {
+  return json(await fetch("/api/alerts/ack-all", { method: "POST" }));
+}
+
+export async function clearAlerts(
+  input: { ids?: string[]; all?: boolean },
+): Promise<{ removed: number }> {
+  return json(await fetch("/api/alerts/clear", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  }));
+}
+
+export type ForwardResult = {
+  results: Array<{ id: string; sent: boolean; errors: string[] }>;
+};
+
+export async function forwardAlerts(
+  input: { ids: string[]; url?: string },
+): Promise<ForwardResult> {
+  return json(await fetch("/api/alerts/forward", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  }));
+}
+
+export async function seedTestAlerts(count = 3): Promise<{ created: StoredAlert[] }> {
+  return json(await fetch("/api/alerts/test-seed", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ count }),
+  }));
+}
+
 export async function fetchThermalOsd(sn: string, signal?: AbortSignal): Promise<ThermalOsdReading> {
   return json<ThermalOsdReading>(
     await fetch(`/api/thermal/osd?sn=${encodeURIComponent(sn)}`, { signal }),

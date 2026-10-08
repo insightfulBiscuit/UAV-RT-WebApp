@@ -1,5 +1,6 @@
-import { LuBell, LuMoon, LuSun, LuPlane } from "react-icons/lu";
+import { LuMoon, LuSun, LuPlane } from "react-icons/lu";
 import { useTheme } from "../../lib/theme";
+import NotificationsBell from "./NotificationsBell";
 import "./Header.css";
 
 export default function Header() {
@@ -23,9 +24,7 @@ export default function Header() {
         >
           {theme === "dark" ? <LuSun size={16} /> : <LuMoon size={16} />}
         </button>
-        <button className="header-icon-btn" aria-label="Notifications">
-          <LuBell size={16} />
-        </button>
+        <NotificationsBell />
         <div className="header-avatar" aria-label="Signed-in user">JR</div>
       </div>
     </header>

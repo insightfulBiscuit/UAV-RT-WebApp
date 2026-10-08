@@ -3,6 +3,7 @@ import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
+import { logger } from "./logger.js";
 
 /**
  * Wrapper around DJI Thermal SDK v1.8 `dji_irp` binary.
@@ -38,10 +39,12 @@ export async function isSdkAvailable(): Promise<boolean> {
     execFile(SDK_BIN, ["--version"], { timeout: 3000 }, (err) => {
       sdkAvailable = !err;
       if (!sdkAvailable) {
-        console.warn(
-          `Thermal SDK binary not found (tried "${SDK_BIN}"). ` +
-            `Set THERMAL_SDK_BIN to a valid dji_irp path. Anchor decoding is disabled until then.`,
+        logger.warn(
+          "thermalSdk",
+          `binary not found (tried "${SDK_BIN}"). Set THERMAL_SDK_BIN to a valid dji_irp path. Anchor decoding is disabled until then.`,
         );
+      } else {
+        logger.info("thermalSdk", `binary available at "${SDK_BIN}"`);
       }
       resolve(!!sdkAvailable);
     });

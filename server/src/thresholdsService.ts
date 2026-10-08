@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { logger } from "./logger.js";
 
 /**
  * Alert threshold overrides. The Python worker reads defaults from
@@ -51,7 +52,7 @@ function readOverrides(): ThresholdOverrides {
     }
     return out;
   } catch (err) {
-    console.warn(`[thresholds] failed to read ${CONFIG_PATH}: ${(err as Error).message}`);
+    logger.warn("thresholds", `failed to read ${CONFIG_PATH}: ${(err as Error).message}`);
     return {};
   }
 }
@@ -83,6 +84,7 @@ export function setOverrides(patch: Record<string, unknown>): ThresholdOverrides
     }
   }
   writeOverrides(next);
+  logger.info("thresholds", "overrides updated", next);
   return next;
 }
 
@@ -90,6 +92,7 @@ export function resetOverrides(): void {
   if (existsSync(CONFIG_PATH)) {
     try { unlinkSync(CONFIG_PATH); } catch { /* ignore */ }
   }
+  logger.info("thresholds", "overrides reset to defaults");
 }
 
 /** Encoded for the AI_THRESHOLDS env var handed to the Python worker. */

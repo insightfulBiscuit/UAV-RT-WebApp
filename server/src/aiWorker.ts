@@ -6,6 +6,8 @@ import { aiFrameTap } from "./aiFrameTap.js";
 import { wsHub } from "./wsHub.js";
 import { serializeForWorker as serializeThresholds } from "./thresholdsService.js";
 import { ntfy } from "./ntfyService.js";
+import { alertStore } from "./alertStore.js";
+import { logger } from "./logger.js";
 
 /** Find the ai_worker/ directory regardless of cwd. */
 function resolveAiWorkerDir(): string {
@@ -94,6 +96,7 @@ class AiWorker {
       AI_THRESHOLDS: serializeThresholds(),
     };
 
+    logger.info("aiWorker", `starting (modality=${modality}, python=${python}, cwd=${cwd})`);
     const child = spawn(python, ["inference_worker.py"], {
       cwd,
       env,
@@ -103,7 +106,7 @@ class AiWorker {
 
     child.stderr!.on("data", (buf: Buffer) => {
       const line = buf.toString("utf8").trim();
-      if (line) console.log(`[ai_worker] ${line}`);
+      if (line) logger.info("aiWorker", line);
     });
 
     // Swallow write-EOF etc. on the stdin pipe when the child exits mid-flight
@@ -118,7 +121,7 @@ class AiWorker {
     this.reader.on("line", (line) => this.onWorkerLine(line));
 
     child.on("exit", (code, signal) => {
-      console.warn(`[ai_worker] exited code=${code} signal=${signal}`);
+      logger.warn("aiWorker", `exited code=${code} signal=${signal}`);
       this.child = null;
       this.reader = null;
       this.unsubscribeFrames();
@@ -163,7 +166,7 @@ class AiWorker {
     if (this.restartTimer) return;
     this.restartAttempt++;
     const delay = Math.min(30_000, 500 * 2 ** this.restartAttempt);
-    console.warn(`[ai_worker] scheduling restart in ${delay}ms (attempt ${this.restartAttempt})`);
+    logger.warn("aiWorker", `scheduling restart in ${delay}ms (attempt ${this.restartAttempt})`);
     this.restartTimer = setTimeout(() => {
       this.restartTimer = null;
       this.start(this.modality);
@@ -235,7 +238,7 @@ class AiWorker {
     try {
       msg = JSON.parse(line);
     } catch {
-      console.warn(`[ai_worker] non-JSON line: ${line.slice(0, 200)}`);
+      logger.warn("aiWorker", `non-JSON line: ${line.slice(0, 200)}`);
       return;
     }
     this.framesReceived++;
@@ -246,9 +249,14 @@ class AiWorker {
       if (this.latencies.length > 60) this.latencies.shift();
     }
     if (msg.detections?.length) this.lastDetectionAt = Date.now();
+    let persisted: ReturnType<typeof alertStore.ingest> = [];
     if (msg.alerts?.length) {
       this.lastAlertAt = Date.now();
+      logger.info("aiWorker", `${msg.alerts.length} alert(s) on seq ${msg.seq}`, {
+        classes: msg.alerts.map((a) => a?.class),
+      });
       ntfy.ingestAlerts(msg.alerts, this.modality);
+      persisted = alertStore.ingest(msg.alerts, this.modality, msg.seq);
     }
 
     wsHub.broadcast("thermal", {
@@ -260,6 +268,13 @@ class AiWorker {
       detections: msg.detections ?? [],
       alerts: msg.alerts ?? [],
     });
+
+    for (const rec of persisted) {
+      wsHub.broadcast("thermal", {
+        type: "alertPersisted",
+        data: alertStore.attachMedia(rec),
+      });
+    }
   }
 }
 

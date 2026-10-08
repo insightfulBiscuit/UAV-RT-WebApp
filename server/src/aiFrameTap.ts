@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
+import { logger } from "./logger.js";
 
 /**
  * ffmpeg-driven RTMP frame tap. Consumes the same stream MediaMTX is
@@ -74,11 +75,13 @@ class AiFrameTap extends EventEmitter {
     this.frameCount = 0;
     this.restarts = 0;
     this.startedAt = Date.now();
+    logger.info("aiTap", `starting tap on stream "${streamKey}"`);
     this.spawnFfmpeg();
     return this.status();
   }
 
   stop(): TapStatus {
+    if (this.wantRunning) logger.info("aiTap", `stopping tap on stream "${this.streamKey}"`);
     this.wantRunning = false;
     if (this.respawnTimer) { clearTimeout(this.respawnTimer); this.respawnTimer = null; }
     if (this.child) {
@@ -134,13 +137,16 @@ class AiFrameTap extends EventEmitter {
     });
 
     child.stderr!.on("data", (d: Buffer) => {
-      if (process.env.FFMPEG_LOG === "1") console.log(`[ffmpeg] ${d.toString().trim()}`);
       const s = d.toString().trim();
-      if (/error|failed|Invalid|Unable/i.test(s)) this.lastError = s.slice(-500);
+      if (process.env.FFMPEG_LOG === "1") logger.debug("aiTap", s);
+      if (/error|failed|Invalid|Unable/i.test(s)) {
+        this.lastError = s.slice(-500);
+        logger.warn("aiTap", `ffmpeg stderr: ${s.slice(-500)}`);
+      }
     });
 
     child.on("exit", (code, signal) => {
-      console.log(`[ai_tap] ffmpeg exited (code=${code} signal=${signal})`);
+      logger.info("aiTap", `ffmpeg exited (code=${code} signal=${signal})`);
       this.child = null;
       if (!this.wantRunning) return;
       // FH2 Share's publisher rotation causes ffmpeg to EOF ~every 10-15s

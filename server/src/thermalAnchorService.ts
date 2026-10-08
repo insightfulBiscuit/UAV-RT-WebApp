@@ -4,6 +4,7 @@ import { wsHub } from "./wsHub.js";
 import type { Fh2Config } from "./fh2Client.js";
 import { acquireControl } from "./livestreamService.js";
 import { listMediaForDevice } from "./mediaService.js";
+import { logger } from "./logger.js";
 
 /**
  * "Anchor" = a ground-truth thermal snapshot with a full per-pixel matrix,
@@ -70,7 +71,7 @@ class AnchorService {
     if (on) {
       this.timer = setInterval(() => {
         void this.captureOnce(cfg).catch((err) =>
-          console.warn(`anchor auto-capture failed: ${(err as Error).message}`),
+          logger.warn("thermalAnchor", `auto-capture failed: ${(err as Error).message}`),
         );
       }, this.intervalMs);
     }
@@ -88,6 +89,7 @@ class AnchorService {
     }
     this.capturing = true;
     const t0 = Date.now();
+    logger.info("thermalAnchor", `capture starting (aircraftSn=${this.aircraftSn})`);
     try {
       // 1) Fire a photo-take command via MQTT to the dock. The dock forwards
       //    to the aircraft. Method / payload shape follows DJI Cloud API v1.
@@ -101,7 +103,7 @@ class AnchorService {
           payloadIndex: [this.cameraIndex],
         });
       } catch (err) {
-        console.warn(`acquireControl failed (continuing): ${(err as Error).message}`);
+        logger.warn("thermalAnchor", `acquireControl failed (continuing): ${(err as Error).message}`);
       }
 
       // DJI Cloud API v1: for a dock+aircraft product, camera services can be
@@ -114,7 +116,7 @@ class AnchorService {
         mqttHub
           .invoke(sn, "camera_photo_take", { payload_index: this.cameraIndex }, 6000)
           .catch((err) => {
-            console.warn(`camera_photo_take on ${sn} failed: ${(err as Error).message}`);
+            logger.warn("thermalAnchor", `camera_photo_take on ${sn} failed: ${(err as Error).message}`);
             return null;
           }),
       );
@@ -133,8 +135,16 @@ class AnchorService {
       // 4) Cache + broadcast.
       this.latest = matrix;
       const summary = this.toSummary(matrix);
+      logger.info("thermalAnchor", `capture succeeded in ${Date.now() - t0}ms`, {
+        min: summary.min,
+        max: summary.max,
+        mean: summary.mean,
+      });
       wsHub.broadcast("thermal", { type: "anchor", anchor: summary });
       return summary;
+    } catch (err) {
+      logger.error("thermalAnchor", `capture failed: ${(err as Error).message}`);
+      throw err;
     } finally {
       this.capturing = false;
     }

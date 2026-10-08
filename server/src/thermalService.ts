@@ -1,4 +1,5 @@
 import { mqttHub } from "./mqttClient.js";
+import { logger } from "./logger.js";
 
 /**
  * Real-time thermal spot metering on M4TD / M3T via DJI Cloud API MQTT.
@@ -158,7 +159,7 @@ export async function measureThermalPoint(params: MeasureParams): Promise<Therma
     );
   } catch (err) {
     // Don't fail hard — some firmware acks slowly or on a different topic.
-    console.warn(`property_set warning: ${(err as Error).message}`);
+    logger.warn("thermal", `property_set warning: ${(err as Error).message}`);
   }
 
   // 2) Poll aircraft OSD for a matching update.

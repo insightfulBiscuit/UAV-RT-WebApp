@@ -4,17 +4,20 @@ import Media from "./pages/Media";
 import Live from "./pages/Live";
 import MissionsPage from "./pages/Missions";
 import { AlertToasts } from "./components/Alerts/AlertToasts";
+import { AlertInboxProvider } from "./lib/alertInboxContext";
 
 export default function App() {
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/media" element={<Media />} />
-        <Route path="/live" element={<Live />} />
-        <Route path="/missions" element={<MissionsPage />} />
-      </Routes>
-      <AlertToasts />
+      <AlertInboxProvider limit={100}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/media" element={<Media />} />
+          <Route path="/live" element={<Live />} />
+          <Route path="/missions" element={<MissionsPage />} />
+        </Routes>
+        <AlertToasts />
+      </AlertInboxProvider>
     </Router>
   );
 }

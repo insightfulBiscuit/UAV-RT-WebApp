@@ -1,0 +1,1120 @@
+\documentclass[11pt,letterpaper]{article}
+
+% -------- Packages --------
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{fancyhdr}
+\usepackage{amsfonts}
+\usepackage{hyperref}
+\usepackage{parskip}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins,breakable}
+
+% -------- Colours --------
+\definecolor{uavblue}{RGB}{25,72,120}
+\definecolor{uavgrey}{RGB}{70,70,70}
+\definecolor{uavlight}{RGB}{240,244,250}
+\definecolor{uavwarn}{RGB}{170,60,30}
+\definecolor{uavgood}{RGB}{40,110,60}
+
+% -------- Hyperref --------
+\hypersetup{
+  colorlinks=true,
+  linkcolor=uavblue,
+  urlcolor=uavblue,
+  citecolor=uavblue,
+  pdftitle={WISP-RT Operation and Delivery Manual},
+  pdfauthor={UAV-RT Team, UBC Okanagan}
+}
+
+% -------- Section styling --------
+\titleformat{\section}
+  {\color{uavblue}\Large\bfseries}{\thesection}{0.6em}{}
+\titleformat{\subsection}
+  {\color{uavblue}\large\bfseries}{\thesubsection}{0.5em}{}
+\titleformat{\subsubsection}
+  {\color{uavgrey}\normalsize\bfseries}{\thesubsubsection}{0.4em}{}
+
+% -------- Header / footer --------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{uavgrey}WISP-RT Operation \& Delivery Manual}
+\fancyhead[R]{\small\color{uavgrey}City of Kelowna}
+\fancyfoot[C]{\small\color{uavgrey}Page \thepage\ of \pageref{LastPage}}
+\renewcommand{\headrulewidth}{0.4pt}
+\usepackage{lastpage}
+
+% -------- Custom boxes --------
+\newtcolorbox{infobox}[1][]{
+  enhanced, breakable,
+  colback=uavlight, colframe=uavblue,
+  boxrule=0.6pt, arc=2pt,
+  left=8pt, right=8pt, top=6pt, bottom=6pt,
+  title={\bfseries #1}, coltitle=white,
+  colbacktitle=uavblue, sharp corners=downhill
+}
+
+\newtcolorbox{warnbox}[1][Warning]{
+  enhanced, breakable,
+  colback=uavlight, colframe=uavwarn,
+  boxrule=0.8pt, arc=2pt,
+  left=8pt, right=8pt, top=6pt, bottom=6pt,
+  title={\bfseries #1}, coltitle=white,
+  colbacktitle=uavwarn, sharp corners=downhill
+}
+
+\newtcolorbox{tipbox}[1][Tip]{
+  enhanced, breakable,
+  colback=uavlight, colframe=uavgood,
+  boxrule=0.6pt, arc=2pt,
+  left=8pt, right=8pt, top=6pt, bottom=6pt,
+  title={\bfseries #1}, coltitle=white,
+  colbacktitle=uavgood, sharp corners=downhill
+}
+
+% Photo / screenshot placeholder
+% Replace with \includegraphics{filename} once photos are added.
+\newcommand{\photoslot}[1]{%
+  \begin{center}
+  \fbox{\begin{minipage}[c][3.2cm][c]{0.85\textwidth}
+    \centering\color{uavgrey}\small\itshape[PHOTO / SCREENSHOT: #1]
+  \end{minipage}}
+  \end{center}
+}
+
+% Checklist item
+\newcommand{\chk}{\item[$\Box$]}
+
+% -------- Title page --------
+\begin{document}
+
+\begin{titlepage}
+  \centering
+  \vspace*{2.2cm}
+  {\color{uavblue}\rule{\textwidth}{1.2pt}}\\[0.6cm]
+  {\Huge\bfseries\color{uavblue} WISP-RT}\\[0.3cm]
+  {\LARGE\bfseries Operation \& Delivery Manual}\\[0.5cm]
+  {\color{uavblue}\rule{\textwidth}{0.6pt}}\\[1.6cm]
+
+  {\large Wildfire Incident Surveillance Platform, Rail-Trail}\\[0.3cm]
+  {\large Autonomous Drone-in-a-Box System for Wildfire and Incident Monitoring}\\[2.5cm]
+
+  \begin{tabular}{rl}
+    \textbf{Delivered to:} & City of Kelowna \\[0.15cm]
+    \textbf{Prepared by:}  & UAV-RT Team, UBC Okanagan \\[0.15cm]
+    \textbf{Team:}         & \begin{tabular}[t]{@{}l@{}}
+                                 Kangnan Wang \\
+                                 Daniil Kovalevskiy \\
+                               \end{tabular} \\[0.15cm]
+    \textbf{Supervisor:}   & Dr.\ Zheng Liu \\[0.15cm]
+    \textbf{Document version:} & 1.0 \\[0.15cm]
+    \textbf{Date:} & September 2026 \\
+  \end{tabular}
+
+  \vfill
+  {\small\color{uavgrey}This is a non-technical manual.
+  The document explains how to physically set up, start, operate, monitor, and shut down
+  the delivered WISP-RT system. It does not cover source code, AI algorithm
+  design, or development-only procedures.}
+\end{titlepage}
+
+% -------- Table of contents --------
+\tableofcontents
+\newpage
+
+% =============================================================
+\section{System Overview}
+% =============================================================
+
+The WISP-RT system is an \textbf{autonomous drone monitoring station} designed
+to detect and report hazards - such as fires, unattended vehicles, and
+suspicious objects - across a designated area in and around the City of
+Kelowna. Once installed, the system launches missions from a DJI Dock~3,
+streams live video (regular and thermal) to an operator computer, runs
+on-computer AI on the video, and pushes alerts to the operator's mobile
+phone.
+
+\begin{infobox}[What this system is used for]
+\begin{itemize}[leftmargin=1.3em]
+  \item Scheduled or on-demand aerial patrols from a fixed dock location.
+  \item Live monitoring of regular and thermal video from the drone.
+  \item Automatic detection of hazards (fire, smoke, people, vehicles, hot spots).
+  \item Push notifications to the operator's mobile phone when an event occurs.
+  \item Recording and later review of flight video and incident evidence.
+\end{itemize}
+\end{infobox}
+
+\subsection{Main Hardware Components}
+
+\begin{tabular}{@{}p{4.5cm}p{10.5cm}@{}}
+\toprule
+\textbf{Component} & \textbf{Purpose} \\
+\midrule
+DJI Matrice 4TD drone      & Aerial platform with RGB and thermal cameras. \\
+DJI Dock~3                 & Weatherproof landing dock. Charges the drone, launches missions, and provides the network uplink. \\
+DJI RC Plus 2 remote       & Manual override controller (used only in emergencies or for local checks). \\
+Operator computer          & Windows~10/11 desktop that runs the WISP-RT operational software. \\
+Uninterruptible Power Supply (UPS) & Keeps critical systems running during short-term power outages. \\
+Operator mobile phone      & Receives push alerts through the \emph{ntfy} app. \\
+\bottomrule
+\end{tabular}
+
+\subsection{Main Software Components}
+\label{sec:overview-software}
+
+\begin{tabular}{@{}p{4.5cm}p{10.5cm}@{}}
+\toprule
+\textbf{Software} & \textbf{Purpose} \\
+\midrule
+DJI FlightHub~2      & Cloud service where you create missions, launch the drone, and see flight records. \\
+WISP-RT operational software & Web application installed on the operator computer. Shows live video, AI detections, thermal data, and the incident list. \\
+ntfy mobile app      & Free notification app used to receive alerts on the operator's phone. \\
+Web browser (Chrome or Edge) & Used to open both FlightHub~2 and the WISP-RT operational page. \\
+\bottomrule
+\end{tabular}
+
+\subsection{Simple System Architecture}
+
+\begin{center}
+\begin{tcolorbox}[colback=uavlight, colframe=uavblue, boxrule=0.6pt, arc=2pt,
+  width=0.95\textwidth]
+\ttfamily\small
+\begin{tabbing}
+\hspace{0.5cm}\=\hspace{4.5cm}\=\hspace{4.5cm}\= \kill
+\> [DJI Drone M4TD] \\
+\> \ \ $\uparrow$/$\downarrow$ (radio / cellular) \\
+\> [DJI Dock 3] $\longrightarrow$ (Ethernet / Cellular) $\longrightarrow$ [FlightHub 2 Cloud] \\
+\> \ \ $\downarrow$ (video + telemetry) \\
+\> [Local Router] \\
+\> \ \ $\downarrow$ \\
+\> [Operator Computer running WISP-RT] $\longrightarrow$ [ntfy] $\longrightarrow$ [Phone] \\
+\end{tabbing}
+\end{tcolorbox}
+\end{center}
+
+\photoslot{Overall connection diagram - photo or drawn diagram of the physical
+setup showing Dock, drone, router, operator PC, and phone.}
+
+\subsection{What Each Component is Responsible For}
+
+\begin{description}[leftmargin=2cm, style=nextline]
+  \item[Drone] Flies the mission, records video, and streams live video back through the Dock.
+  \item[Dock~3] Keeps the drone charged, opens/closes the cover, provides GPS reference, and forwards data to FlightHub~2 and the operator computer.
+  \item[FlightHub~2] Cloud service that stores missions, controls the Dock, and archives flight recordings.
+  \item[Operator Computer] Runs the system software. Displays live video, runs the AI, and stores incident snapshots and clips.
+  \item[Mobile Phone (ntfy)] Receives push notifications so the operator does not need to watch the screen at all times.
+\end{description}
+
+\newpage
+% =============================================================
+\section{Regulatory and Compliance Responsibility}
+\label{sec:regulatory}
+% =============================================================
+
+\begin{warnbox}[The City and the operator are responsible for compliance]
+Operating this system involves flying a remotely piloted aircraft in
+Canadian airspace. The City of Kelowna and the pilot in command are
+responsible for identifying and following the laws, regulations,
+authorizations, and City policies that apply to the operation. This
+manual explains how to use the delivered system; it does not restate
+regulatory rules and is not a substitute for them.
+\end{warnbox}
+
+Typical authorities the City should confirm before operating include
+Transport Canada (pilot certification, aircraft registration, and RPAS
+operating rules), NAV CANADA (airspace coordination), and the City of
+Kelowna's own bylaws and privacy policies. The City is responsible for
+maintaining the compliance and insurance documents that its regulator
+and internal policy require.
+
+\begin{infobox}[Fire incident response]
+Any confirmed fire detected by this system must be reported through the
+City of Kelowna's existing fire-response procedure. This system is a
+monitoring aid, not a replacement for professional response.
+\end{infobox}
+
+\newpage
+
+
+% =============================================================
+\section{City Responsibilities and Provided Services}
+% =============================================================
+
+The delivered system depends on a small number of accounts and
+infrastructure items owned by the City of Kelowna. Only items confirmed
+as part of the delivered configuration are listed below.
+
+\subsection{Accounts to Maintain}
+
+\begin{longtable}{@{}p{4.0cm}p{11.0cm}@{}}
+\toprule
+\textbf{Item} & \textbf{Purpose} \\
+\midrule
+DJI FlightHub~2 account & Cloud service that controls the Dock, stores missions, and archives flight records. Required for the Dock to operate. \\
+\addlinespace
+ntfy topic subscription & Free notification service. The operator's phone subscribes to the delivered topic name to receive alerts. \\
+\addlinespace
+\bottomrule
+\end{longtable}
+
+Any additional accounts, subscriptions, or warranty plans (for example,
+manufacturer service coverage or LTE service for the Dock's cellular
+fallback) are the City's decision and are not committed to by this
+manual.
+
+\subsection{Physical Infrastructure the City Must Provide}
+
+\begin{longtable}{@{}p{3.4cm}p{7cm}p{4cm}@{}}
+\toprule
+\textbf{Item} & \textbf{Requirement} & \textbf{Maintained by} \\
+\midrule
+Dock site & Level outdoor location with clear sky view and no overhanging vegetation. & City facilities. \\
+\addlinespace
+AC power to Dock & Grounded AC circuit sized for the Dock's rated input. & City facilities / electrician. \\
+\addlinespace
+Network from Dock to operator & Wired connection sufficient for live video from the Dock to the operator computer. & City IT. \\
+\addlinespace
+Operator workstation & Indoor computer running the delivered WISP-RT web application in Chrome or Edge. & City IT. \\
+\addlinespace
+Operator mobile phone & Android or iPhone with the ntfy app installed and subscribed to the delivered topic. & City operations. \\
+\bottomrule
+\end{longtable}
+
+\subsection{City Contact Roster}
+\label{sec:contact-roster}
+
+Fill in this table at delivery. Each role should have a named primary
+and a backup.
+
+\begin{longtable}{@{}p{4.5cm}p{5cm}p{5cm}@{}}
+\toprule
+\textbf{Role} & \textbf{Primary} & \textbf{Backup} \\
+\midrule
+Pilot in command               & \rule{4.5cm}{0.4pt} & \rule{4.5cm}{0.4pt} \\
+Daily operator                 & \rule{4.5cm}{0.4pt} & \rule{4.5cm}{0.4pt} \\
+IT / network                   & \rule{4.5cm}{0.4pt} & \rule{4.5cm}{0.4pt} \\
+Facilities / power             & \rule{4.5cm}{0.4pt} & \rule{4.5cm}{0.4pt} \\
+Incident response (fire)       & \rule{4.5cm}{0.4pt} & \rule{4.5cm}{0.4pt} \\
+UAV-RT technical support (UBCO) & \rule{4.5cm}{0.4pt} & \rule{4.5cm}{0.4pt} \\
+\bottomrule
+\end{longtable}
+
+% =============================================================
+\section{Hardware Setup and Operation}
+% =============================================================
+
+This section covers the physical setup of the delivered system and the
+day-to-day interaction the operator has with the hardware. The DJI User
+Manuals shipped with each unit remain the authoritative reference for
+detailed mechanical and electrical procedures.
+
+\subsection{Environmental Operating Limits}
+
+Missions must remain within the platform's rated environmental
+envelope. These values come from the delivered platform's
+specifications.
+
+\begin{tabular}{@{}p{4.5cm}p{4.8cm}p{4.8cm}@{}}
+\toprule
+\textbf{Parameter} & \textbf{DJI Dock 3} & \textbf{Matrice 4TD} \\
+\midrule
+Ingress protection    & IP56              & IP55 \\
+Operating temperature & -30 to +50\,\textdegree{}C & -20 to +50\,\textdegree{}C \\
+Wind resistance       & Landing: 12~m/s   & Operation and takeoff/landing: 12~m/s \\
+\bottomrule
+\end{tabular}
+
+\subsection{Site and Base Location}
+
+The planned final base for the delivered system is the City of Kelowna
+Public Works Yard at 1495 Hardy Street. The site must provide:
+
+\begin{itemize}[leftmargin=1.5em]
+  \item A level outdoor location for the Dock with a clear view of the sky.
+  \item No overhanging vegetation, wires, or structures above the Dock.
+  \item Grounded AC power sized for the Dock's rated input.
+  \item A wired network path from the Dock to the operator workstation
+        sufficient for continuous live video.
+\end{itemize}
+
+\photoslot{Photo of the Dock installed on its final pad at the Public Works
+Yard, showing power and network connections.}
+
+\subsection{Hardware Installation Steps}
+
+The steps below are performed once, at delivery, by the UAV-RT team
+together with City facilities and IT staff. They are included here so
+that the City has a record of what was installed and can verify the
+setup later.
+
+\subsubsection{Step 1 -- Dock placement and power}
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item Position the DJI Dock 3 on its prepared level pad at 1495 Hardy Street.
+  \item Confirm the Dock is level using the built-in indicator on the top surface.
+  \item Route the AC power cable to the Dock's power input; do not power on yet.
+  \item Confirm no vegetation, wires, or roof overhangs sit above the Dock cover.
+\end{enumerate}
+
+\photoslot{Photo of the Dock 3 in its final position with the level indicator visible.}
+
+\subsubsection{Step 2 -- Network cabling}
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item Route the Ethernet cable from the Dock's network port into the
+        operator building.
+  \item Terminate the cable at the operator workstation's network switch or router.
+  \item Confirm the cable is properly seated at both ends before the Dock
+        is powered on.
+\end{enumerate}
+
+\photoslot{Photo of the Dock network port with the Ethernet cable connected.}
+
+\subsubsection{Step 3 -- First power-on and Dock binding}
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item Apply AC power to the Dock. The internal indicator lights turn on.
+  \item Wait for the Dock to complete its self-check (typically several minutes).
+  \item Bind the Dock to the City's DJI FlightHub 2 account following the
+        prompts in the FlightHub 2 web interface.
+  \item Confirm the Dock appears as \textbf{Online} in the FlightHub 2
+        device list.
+\end{enumerate}
+
+\photoslot{Screenshot of the FlightHub 2 device list showing the Dock as Online.}
+
+\subsubsection{Step 4 -- Aircraft placement}
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item Open the Dock cover using the FlightHub 2 remote command.
+  \item Place the DJI Matrice 4TD on the Dock's landing pad according to the
+        alignment marks.
+  \item Close the Dock cover from FlightHub 2.
+  \item Confirm the drone begins charging (charging indicator in FlightHub 2).
+\end{enumerate}
+
+\photoslot{Photo of the Matrice 4TD seated on the Dock pad.}
+
+\subsubsection{Step 5 -- Operator computer and software}
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item Set up the operator computer at the workstation with monitor,
+        keyboard, mouse, and network connection.
+  \item The UAV-RT team installs and configures the WISP-RT operational
+        software on the computer.
+  \item Two desktop shortcuts are created: \textbf{WISP-RT} and \textbf{FlightHub 2}.
+  \item Confirm both shortcuts open successfully in Chrome.
+\end{enumerate}
+
+\photoslot{Screenshot of the Windows desktop showing the two shortcuts.}
+
+\subsubsection{Step 6 -- Mobile phone and ntfy}
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item Install the free \textbf{ntfy} app from Google Play (Android) or
+        the App Store (iPhone).
+  \item Open ntfy and tap \textbf{Subscribe to topic}.
+  \item Enter the topic name provided by the UAV-RT team at delivery.
+  \item Tap \textbf{Subscribe}.
+  \item Send a test alert from the WISP-RT Live view and confirm the phone
+        receives it.
+\end{enumerate}
+
+\photoslot{Screenshot of the ntfy app subscribe screen with the delivered topic name filled in.}
+
+\subsubsection{Step 7 -- End-to-end verification}
+
+Before handover, the following are verified together:
+
+\begin{itemize}[leftmargin=1.5em]
+  \item Dock shows Online in FlightHub 2.
+  \item Aircraft shows Ready in FlightHub 2.
+  \item WISP-RT Overview page shows all System Status cells green.
+  \item Live RGB and thermal video appear in the WISP-RT Live view.
+  \item A test push is received on the operator's phone.
+  \item A short verification flight completes normally and lands in the Dock.
+\end{itemize}
+
+\photoslot{Photo of the completed installed system - Dock on its pad, operator computer at the workstation, phone in hand.}
+
+\subsection{Equipment the Operator Interacts With}
+
+Day-to-day, the operator interacts only with the following items. All
+other setup is complete after installation.
+
+\begin{longtable}{@{}p{4.8cm}p{10.2cm}@{}}
+\toprule
+\textbf{Item} & \textbf{What the operator does with it} \\
+\midrule
+DJI Matrice 4TD drone       & No direct handling. Confirm it is seated in the Dock before each mission. \\
+DJI Dock 3                  & No direct handling. Confirm the cover is closed between missions. \\
+DJI RC Plus 2 remote controller & Used only for local overrides or supervised training. Stored powered off. \\
+Operator computer           & Main daily tool. Runs WISP-RT and FlightHub~2 in a web browser. \\
+Operator monitor, keyboard, mouse & Standard desktop use. \\
+Operator mobile phone       & Receives ntfy alerts. Keep charged and within reach. \\
+\bottomrule
+\end{longtable}
+
+\subsection{Daily System Start-Up (Operator View)}
+
+The Dock, drone, router, and UPS are designed to run 24/7 and will
+normally already be powered on when the operator arrives. The daily
+start-up for the operator is limited to:
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item Wake or power on the operator computer.
+  \item Open the \textbf{WISP-RT} desktop shortcut (loads the
+        WISP-RT Overview page).
+  \item Open the \textbf{FlightHub 2} desktop shortcut and log in.
+  \item Confirm the System Status card in WISP-RT shows all cells green
+        and the overall pill reads ``healthy''.
+  \item Confirm FlightHub~2 shows the Dock as ``Online'' and the drone as
+        ``Ready''.
+\end{enumerate}
+
+\photoslot{Screenshot of the WISP-RT Overview page with all System Status
+cells green and the overall pill reading ``healthy''.}
+
+If any indicator is not green, do \textbf{not} launch a mission. Follow the
+steps in Section~\ref{sec:exceptions} or contact the UAV-RT support team.
+
+\subsection{Daily System Shut-Down (Operator View)}
+
+Normal daily shut-down is \textbf{not required}. The system is designed to
+stay online continuously. The operator only needs to:
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item Confirm the drone is seated inside the Dock and the cover is closed.
+  \item Confirm the WISP-RT Overview page shows no in-progress mission.
+  \item Log out or lock the operator computer.
+\end{enumerate}
+
+Full power-off of the Dock and the drone is only required for maintenance
+or transport, and should be coordinated with UAV-RT support.
+
+\newpage
+% =============================================================
+\section{Software Preparation and Access}
+% =============================================================
+
+The four software components used day to day are introduced in
+Section~\ref{sec:overview-software} of the System Overview. This section
+covers installation, log-in, and the network connections between them.
+
+\subsection{Installation and Login}
+
+\subsubsection{Operator Computer (already installed by UAV-RT team)}
+
+The UAV-RT team installs and configures the WISP-RT software directly on the
+City's designated computer before handover. The operator does not need to
+install anything on the computer. Two desktop shortcuts are provided:
+
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{WISP-RT} - opens the WISP-RT Overview page in Chrome.
+  \item \textbf{FlightHub 2} - opens DJI FlightHub~2 in Chrome.
+\end{itemize}
+
+\photoslot{Screenshot of the Windows desktop showing both shortcuts.}
+
+To log in to FlightHub~2, click the ``FlightHub 2'' shortcut. When the DJI
+sign-in page appears, enter the account credentials provided in the sealed
+credentials envelope that accompanies this manual.
+
+\begin{warnbox}[Keep credentials safe]
+Do not share the FlightHub~2 credentials over email or public chat.
+\end{warnbox}
+
+\subsubsection{Mobile Phone (ntfy)}
+
+Install ntfy on the operator's mobile phone:
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item On the phone, open Google Play (Android) or App Store (iPhone).
+  \item Search for \textbf{``ntfy''} (developer name: Philipp Heckel).
+  \item Install the app. It is free and requires no account.
+  \item Open ntfy $\rightarrow$ ``Subscribe to topic''.
+  \item Enter the topic name provided by the UAV-RT team (for example, \texttt{dji\_alert}).
+  \item Tap ``Subscribe''.
+  \item Send a test alert from the WISP-RT Live view to confirm the phone receives it.
+\end{enumerate}
+
+\photoslot{Screenshot of the ntfy app subscribe screen with the topic name
+filled in.}
+
+\subsection{Basic Connection Setup}
+
+The connections below are configured once by the UAV-RT team at delivery.
+The operator does not usually need to change them.
+
+\begin{tabular}{@{}p{5cm}p{10cm}@{}}
+\toprule
+\textbf{Connection} & \textbf{Configured value / requirement} \\
+\midrule
+Dock $\leftrightarrow$ FlightHub~2 & Dock is bound to the City's FlightHub~2 project. \\
+FlightHub 2 $\leftrightarrow$ WISP-RT    & Media and telemetry sharing. \\
+WISP-RT $\leftrightarrow$ Computer    & Local web app. Open via the \textbf{WISP-RT} desktop shortcut. \\
+Phone $\leftrightarrow$ ntfy       & Subscribed to the delivered topic name. \\
+\bottomrule
+\end{tabular}
+
+\newpage
+% =============================================================
+\section{Pre-Operation Check}
+\label{sec:preop}
+% =============================================================
+
+Complete this check \textbf{before every mission}. A printable one-page
+checklist is provided in Section~\ref{sec:checklist}.
+
+\subsection{Device and Connection Check}
+
+Open the WISP-RT Overview page. Confirm each of the following:
+
+\begin{itemize}[leftmargin=1.5em]
+  \chk Dock~3 is Online (green dot in System Status).
+  \chk Drone is Online (green dot in Aircraft telemetry card).
+  \chk Camera (M4TD) is Online.
+  \chk Live streams counter reads at least the minimum for the deployed cameras (thermal and dock feeds ready).
+  \chk All System Status cells on the WISP-RT Overview page are green.
+  \chk FlightHub~2 dashboard shows the Dock as ``Online''.
+\end{itemize}
+
+\photoslot{Screenshot of the WISP-RT System Status card with all cells
+green.}
+
+\subsection{Function Check}
+
+Go to the WISP-RT ``Live view'' page and confirm each of the following:
+
+\begin{itemize}[leftmargin=1.5em]
+  \chk Regular (RGB) live video appears within 10~seconds.
+  \chk Thermal live video appears (switch to thermal tile).
+  \chk Temperature reading shows a value (top-left of thermal tile).
+  \chk The AI worker card shows ``Running'' with a green dot.
+  \chk Press the ``Send test push'' button - phone receives an ntfy alert.
+\end{itemize}
+
+\subsection{Ready-to-Operate Check}
+
+Complete every item below before launch. The regulatory items below
+must be satisfied per the applicable rules and the City's own
+procedures - see Section~\ref{sec:regulatory}.
+
+\begin{itemize}[leftmargin=1.5em]
+  \chk Drone battery at least 60~\%.
+  \chk Weather within DJI operating limits (no precipitation, icing, or wind above the M4TD manufacturer limit).
+  \chk NOTAMs reviewed for the operating area.
+  \chk Any required airspace authorization is in place and accessible to the pilot.
+  \chk Site assessment complete; people-control measures in place.
+  \chk Pilot certification, recency evidence, and aircraft registration accessible to the pilot.
+  \chk Mission plan selected in FlightHub~2.
+  \chk Lost-link / RTH behaviour reviewed for this specific site.
+  \chk Emergency contact list visible at the operator station.
+\end{itemize}
+
+\newpage
+% =============================================================
+\section{Mission Operation}
+% =============================================================
+
+\subsection{Create a Flight Route}
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item Open FlightHub~2 using the desktop shortcut.
+  \item In the left menu, click \textbf{Flight Route Library}.
+  \item Click \textbf{Create Route}.
+  \item Choose the route type: \textbf{Waypoint}, \textbf{Mapping}, or \textbf{Oblique}.
+        For general patrols, use \textbf{Waypoint}.
+  \item On the map, click each waypoint the drone should visit.
+  \item For each waypoint, set the parameters required by the mission:
+    \begin{itemize}[leftmargin=1.2em]
+      \item Altitude above ground.
+      \item Speed.
+      \item Actions (hover, photo, gimbal angle, etc.).
+    \end{itemize}
+        Use the altitude and speed values established during commissioning
+        for the selected route; they are not fixed defaults in this manual.
+  \item Click \textbf{Save} and give the route a clear name, e.g.
+        ``\texttt{Downtown\_Patrol\_A}''.
+\end{enumerate}
+
+% \photoslot{Screenshot of the FlightHub~2 route creation view with waypoints
+% placed on the map.}
+
+\begin{figure}[htp]
+    \centering
+    \includegraphics[width=16cm]{images/Screenshot 2026-09-12 at 11.19.39.png}
+    \caption{FlightHub 2 Flight Route Creation}
+\end{figure}
+
+\subsection{Start and Execute a Mission}
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item Open FlightHub~2 $\rightarrow$ \textbf{Projects} $\rightarrow$ select your project.
+  \item Click \textbf{Task Plan Library} $\rightarrow$ \textbf{Create Task}.
+  \item Select the route saved in the previous step.
+  \item Review the pre-flight checklist that FlightHub~2 shows automatically
+        (battery, weather, RTH altitude).
+  \item Click \textbf{OK}.
+  \item Watch the Dock cover open, the drone lift off, and the mission counter start.
+  \item Switch to the WISP-RT ``Live view'' page to watch the flight in real time.
+\end{enumerate}
+
+% \photoslot{Screenshot of the FlightHub~2 ``Execute Task'' confirmation dialog.}
+
+\begin{figure}[htp]
+    \centering
+    \includegraphics[width=16cm]{images/Screenshot 2026-09-12 at 11.31.16.png}
+    \caption{FlightHub 2 Mission Execution}
+\end{figure}
+
+\subsection{Pause, Stop, and Complete a Mission}
+
+\subsubsection{Pause}
+
+In FlightHub~2, click the yellow \textbf{Pause} button on the mission control
+strip. The drone will hover in place.
+
+\subsubsection{Manual Stop}
+
+Click the red \textbf{Stop} button. The drone will follow its programmed
+Return-to-Home procedure and land in the Dock.
+
+\subsubsection{Emergency Return}
+
+Click \textbf{Return to Home (RTH)}. This is the same as Stop but forces
+the drone to climb to the RTH altitude before returning.
+
+\subsubsection{Mission Complete}
+
+When the drone lands and the Dock cover closes, confirm:
+
+\begin{itemize}[leftmargin=1.5em]
+  \item FlightHub~2 shows the task as ``Complete''.
+  \item The WISP-RT Overview page shows one more ``Flight today'' count.
+  \item Any incidents flagged during the flight appear in the Incidents list.
+\end{itemize}
+
+\newpage
+% =============================================================
+\section{Monitoring, Alerts, and Records}
+% =============================================================
+
+\subsection{Live Monitoring}
+
+Open the WISP-RT ``Live view'' page. You will see:
+
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{Primary video pane} - large window with overlays (AI boxes, thermal palette, temperature reading).
+  \item \textbf{Camera tiles} on the right - click any tile to switch the primary view.
+  \item \textbf{Flight status bar} - altitude, speed, battery, wind, and heading.
+\end{itemize}
+
+% \photoslot{Annotated screenshot of the Live view showing the primary pane,
+% camera tiles, split-view button, and telemetry strip.}
+
+\begin{figure}[htp]
+    \centering
+    \includegraphics[width=16cm]{images/Screenshot 2026-09-12 at 11.48.46.png}
+    \caption{WISP-RT Live View}
+\end{figure}
+
+\subsection{AI and Thermal Information}
+
+\subsubsection{Where AI Results Appear}
+
+\begin{itemize}[leftmargin=1.5em]
+  \item Coloured boxes on the primary video pane - one box per detected object.
+  \item Header \textbf{bell icon} - unread alert count.
+  \item Overview page \textbf{Incidents list} - all persisted alerts of the day, each with a snapshot photo and a 5-second video clip.
+\end{itemize}
+
+\subsubsection{How the System Decides When to Alert}
+
+The delivered system combines object detection with thermal information. The
+logic follows the day/night sensing priority of the Matrice 4TD:
+
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{Daytime} -- detection is based mainly on the RGB (visible-light) camera.
+  \item \textbf{Nighttime} -- detection is based mainly on the IR (thermal) camera.
+  \item Detected objects are considered together with the temperature information
+        from the same scene.
+  \item An \textbf{alert is generated} when either:
+    \begin{itemize}[leftmargin=1.2em]
+      \item the object's temperature is abnormally above its normal range for
+            that class of object, or
+      \item fire or smoke is directly detected.
+    \end{itemize}
+  \item Otherwise, the observation is treated as normal.
+\end{itemize}
+
+\begin{infobox}[An object label alone is not an incident]
+A bounding box on a person, vehicle, or tent does not by itself indicate a
+fire incident. The alert only fires when the thermal reading is out of the
+normal range for the observed target, or when fire or smoke is detected
+directly. The operator still reviews the live evidence before deciding on a
+response.
+\end{infobox}
+
+\subsubsection{Detection Classes}
+
+The deployed detector recognizes ten classes:
+
+\begin{tabular}{@{}p{3.5cm}p{11.5cm}@{}}
+\toprule
+\textbf{Class} & \textbf{Meaning for the operator} \\
+\midrule
+Fire            & Visible flame or extreme heat source. \textbf{Immediate response required.} \\
+Smoke           & Smoke plume detected. Confirm and log. \\
+Person          & Person present in the monitored area. \\
+Vehicle         & Car, truck, or similar in the monitored area. \\
+Tree            & Vegetation context. \\
+Dry\ grass      & Combustible vegetation. Alert only if the temperature is abnormal for the class. \\
+Tent / Tarp     & Temporary shelter. Alert only if the temperature is abnormal for the class. \\
+Plastic waste   & Debris. Alert only if the temperature is abnormal for the class. \\
+Metal fixture   & Fixed infrastructure. Context class. \\
+Green grass     & Non-combustible vegetation. Context class. \\
+\bottomrule
+\end{tabular}
+
+\subsection{Mobile Alerts (ntfy)}
+
+When an alert fires:
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item The phone shows a notification with:
+    \begin{itemize}[leftmargin=1.2em]
+      \item Class (fire, smoke, person, etc.).
+      \item Temperature (if applicable).
+      \item Short description (``$\times$3 in 10\,s'' if several detections were bundled).
+    \end{itemize}
+  \item Tapping the notification opens the WISP-RT Live view page.
+  \item The operator should then:
+    \begin{itemize}[leftmargin=1.2em]
+      \item Open the WISP-RT Overview page.
+      \item Find the alert in the Incidents list.
+      \item Click the thumbnail to view the snapshot and 5-second clip.
+      \item Decide on next action (log, forward, dispatch, ignore).
+    \end{itemize}
+\end{enumerate}
+
+% \photoslot{Photo of a phone showing a fire alert notification and screenshot
+% of the WISP-RT Incidents list with an unread alert highlighted.}
+
+\subsection{Flight Records and Video}
+
+\subsubsection{In FlightHub~2}
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item Open FlightHub~2 $\rightarrow$ \textbf{Missions} $\rightarrow$ \textbf{History}.
+  \item Filter by date or Dock.
+  \item Click a mission to see:
+    \begin{itemize}[leftmargin=1.2em]
+      \item Flight path replay on the map.
+      \item Recorded video (RGB and thermal).
+      \item Telemetry graphs.
+    \end{itemize}
+  \item Click \textbf{Download} to save video locally if needed.
+\end{enumerate}
+
+\subsubsection{In System}
+
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{Overview page} $\rightarrow$ \textbf{Incidents list}: every persisted alert with photo and 5~s clip.
+  \item \textbf{Footage page}: thumbnail browser of all captured incident media, grouped by date.
+  \item Click any card to open the preview modal (photo + inline video).
+  \item Use the \textbf{Forward} button to send selected incidents to the phone via ntfy.
+  \item Use the \textbf{Clear} button to remove old incidents from the list.
+\end{itemize}
+
+% \photoslot{Screenshot of the WISP-RT Incidents list with two items checked and
+% the ``Forward'' button highlighted.}
+
+\begin{figure}[htp]
+    \centering
+    \includegraphics[width=16cm]{images/Screenshot 2026-09-12 at 12.22.59.png}
+    \caption{WISP-RT Incident Handling}
+\end{figure}
+
+\newpage
+% =============================================================
+\section{Routine Maintenance and Firmware Updates}
+\label{sec:maintenance}
+% =============================================================
+
+This section covers the routine checks the daily operator performs and
+the firmware-update workflow in FlightHub~2. Manufacturer-defined
+service intervals for the drone, batteries, and Dock consumables are
+specified in the DJI User Manuals and take precedence over any interval
+suggested here.
+
+\subsection{Operator Daily Checks}
+
+\begin{itemize}[leftmargin=1.5em]
+  \item Visual walk-around of the Dock: cover closed, no debris, no water pooling on the pad.
+  \item WISP-RT Overview page shows all System Status cells green.
+  \item Confirm ntfy alerts are received on the operator phone using the test-push button.
+\end{itemize}
+
+\subsection{Operator Weekly Checks}
+
+\begin{itemize}[leftmargin=1.5em]
+  \item Inspect drone propellers for chips, cracks, or bent tips. Replace
+        any propeller with visible damage.
+  \item Wipe the RGB and thermal camera lenses with the DJI cleaning cloth.
+  \item Check FlightHub~2 for firmware update notifications and, if one is
+        available, coordinate the update as described below.
+\end{itemize}
+
+\photoslot{Photo of a healthy propeller next to one with a small tip chip
+that requires replacement.}
+
+\subsection{DJI-Specified Service}
+
+Battery cycle count and health, Dock desiccant replacement, cabling
+inspection, and manufacturer service intervals are defined by DJI. The
+City's designated technician follows the schedules in the
+\emph{DJI Matrice 4TD User Manual} and \emph{DJI Dock 3 User Manual};
+they are not restated here to avoid conflicting with the current
+manufacturer guidance.
+
+\subsection{Firmware Updates in FlightHub~2}
+
+DJI releases firmware updates for the drone, Dock, and remote controller
+several times a year. Updates fix bugs, patch security issues, and
+occasionally add capabilities. The City's technician should check for
+updates \textbf{weekly} and apply them promptly.
+
+\subsubsection{Weekly Firmware Check}
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item Open FlightHub~2 in the operator computer's browser and sign in.
+  \item Go to \textbf{Devices} $\rightarrow$ select the Dock.
+  \item Look at the device summary panel. If a firmware update is
+        available, a coloured \textbf{Update} banner or badge appears next to the device.
+  \item Click the banner to see the release notes and target version.
+\end{enumerate}
+
+% \photoslot{Screenshot of the FlightHub~2 Devices panel showing an
+% ``Update available'' badge next to the Dock.}
+
+\begin{figure}[htp]
+    \centering
+    \includegraphics[width=16cm]{images/Screenshot 2026-09-12 at 12.52.50.png}
+    \caption{FlightHub 2 Firmware Updates}
+\end{figure}
+
+\subsubsection{Applying a Firmware Update}
+
+\begin{warnbox}[Before you start]
+\begin{itemize}[leftmargin=1.3em]
+  \item Confirm no mission is in progress or scheduled to start within the next 60~minutes.
+  \item Confirm the drone is seated in the Dock and the cover is closed.
+  \item Confirm the drone battery is above 50~\%.
+  \item Confirm the ground internet connection is stable (Ethernet, not just LTE fallback).
+  \item Never cut power to the Dock or drone during an update.
+\end{itemize}
+\end{warnbox}
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item In FlightHub~2, open the Dock's device page and click \textbf{Firmware Update} $\rightarrow$ \textbf{Update Now}.
+  \item FlightHub~2 downloads the update to the Dock (typically 5--20~minutes depending on size).
+  \item The Dock then flashes the drone and the Dock modules. The drone and Dock will reboot at least once.
+  \item Wait until FlightHub~2 shows the new version as ``Installed'' and the device status returns to \textbf{Online}.
+  \item Open the WISP-RT Overview page and confirm the System Status card is fully green again. Some cells may take a few minutes to reconnect after the reboot.
+  \item Fly a short test mission (or launch and land at a low altitude) to confirm behaviour is unchanged.
+\end{enumerate}
+
+\subsubsection{If a Firmware Update Fails}
+
+\begin{itemize}[leftmargin=1.5em]
+  \item Do \textbf{not} power-cycle the Dock or drone. FlightHub~2 usually retries automatically.
+  \item If FlightHub~2 reports the device as ``offline for update'' for more than 30~minutes, contact the UAV-RT support team before doing anything physical.
+  \item Never attempt to downgrade firmware unless DJI or UAV-RT support explicitly instructs you to.
+\end{itemize}
+
+\subsection{WISP-RT Software Updates}
+
+The WISP-RT operational software is maintained by the UAV-RT team. New
+versions are delivered as a scheduled visit or a remote-assistance
+session. The operator does not need to install or patch WISP-RT.
+
+\newpage
+% =============================================================
+\section{Basic Exception and Safety Handling}
+\label{sec:exceptions}
+% =============================================================
+
+\subsection{Connection Loss / Return-to-Home}
+
+If the drone loses communication with the Dock during flight:
+
+\begin{itemize}[leftmargin=1.5em]
+  \item The drone automatically enters DJI Return-to-Home behaviour.
+  \item It will climb to the pre-set RTH altitude, fly back to the Dock, and land.
+  \item The operator should:
+    \begin{enumerate}[leftmargin=1.2em]
+      \item Watch the FlightHub~2 map until the drone reaches the Dock.
+      \item Not attempt to re-launch until the connection is restored.
+    \end{enumerate}
+\end{itemize}
+
+\subsection{Mission Interruption}
+
+If a mission is interrupted (weather, obstacle, operator decision):
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item Click \textbf{Pause} in FlightHub~2 if the drone should hover.
+  \item Click \textbf{RTH} or \textbf{Stop} if the drone must come home.
+  \item Do not power the Dock off while the drone is in the air.
+  \item Once the drone has landed, review the FlightHub~2 log for the reason.
+\end{enumerate}
+
+\subsection{Software / AI Unavailable}
+
+If the WISP-RT Overview page shows red or ``offline'' dots for AI worker,
+Live streams, or Thermal SDK:
+
+\begin{itemize}[leftmargin=1.5em]
+  \item Do \textbf{not} rely on the affected function during the flight.
+  \item Continue the mission only if visual monitoring in FlightHub~2 alone is acceptable.
+  \item If AI monitoring is critical, pause or postpone the mission.
+  \item Contact the UAV-RT technical support team (contact details on the
+        inside cover of this manual).
+\end{itemize}
+
+\begin{tipbox}[Quick recovery]
+For most WISP-RT issues, refreshing the browser page (F5) or restarting the
+computer resolves the problem. Do not re-install any software - contact
+support instead.
+\end{tipbox}
+
+\subsection{Alert Response}
+
+After receiving a warning on the phone:
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item Open the WISP-RT Live view (tap the notification, or click the desktop shortcut).
+  \item Confirm the event on live video.
+  \item Open the Overview page and find the incident.
+  \item Review the snapshot and 5~s clip.
+  \item Decide whether to:
+    \begin{itemize}[leftmargin=1.2em]
+      \item Forward to emergency services or the City response team.
+      \item Save the record for follow-up.
+      \item Dismiss (mark as reviewed).
+    \end{itemize}
+  \item Follow the City's internal incident response procedure.
+\end{enumerate}
+
+\begin{warnbox}[When in doubt, escalate]
+For any suspected fire alert, follow the City's fire response procedure
+first. This system is a monitoring aid, not a replacement for professional
+response.
+\end{warnbox}
+
+\newpage
+% =============================================================
+\section{Quick Operation Guide}
+\label{sec:checklist}
+% =============================================================
+
+The one-page guide below covers a normal operating day. Print this page and
+keep it near the operator computer.
+
+\begin{tcolorbox}[colback=uavlight, colframe=uavblue, boxrule=0.8pt, arc=3pt,
+  title={\bfseries Daily WISP-RT Operating Workflow}, coltitle=white,
+  colbacktitle=uavblue, fonttitle=\Large]
+
+\textbf{1. Confirm hardware in place}
+\begin{itemize}[leftmargin=1.5em, itemsep=0.1em]
+  \item Dock, drone, operator computer, router, and phone all present and undamaged.
+  \item UPS ``online'' indicator is green; router internet indicator is on.
+\end{itemize}
+
+\textbf{2. Start the operator computer}
+\begin{itemize}[leftmargin=1.5em, itemsep=0.1em]
+  \item The Dock, drone, router, and UPS run 24/7 - do not power-cycle them.
+  \item Wake or log in the operator computer; open the \textbf{WISP-RT} and \textbf{FlightHub 2} desktop shortcuts.
+\end{itemize}
+
+\textbf{3. Check system status}
+\begin{itemize}[leftmargin=1.5em, itemsep=0.1em]
+  \item WISP-RT Overview page: all System Status cells green.
+  \item FlightHub~2: Dock and drone show ``Online''.
+  \item Phone: ntfy subscribed to the correct topic.
+\end{itemize}
+
+\textbf{4. Create or select mission}
+\begin{itemize}[leftmargin=1.5em, itemsep=0.1em]
+  \item FlightHub~2 $\rightarrow$ Flight Route Library $\rightarrow$ pick or create a route.
+\end{itemize}
+
+\textbf{5. Start mission}
+\begin{itemize}[leftmargin=1.5em, itemsep=0.1em]
+  \item FlightHub~2 $\rightarrow$ Create Task $\rightarrow$ Immediate Task $\rightarrow$ Execute.
+\end{itemize}
+
+\textbf{6. Monitor flight and AI results}
+\begin{itemize}[leftmargin=1.5em, itemsep=0.1em]
+  \item WISP-RT Live view: watch video, AI boxes, and temperature overlay.
+  \item Overview page: watch the Incidents list update.
+\end{itemize}
+
+\textbf{7. Receive and check alerts}
+\begin{itemize}[leftmargin=1.5em, itemsep=0.1em]
+  \item Phone ntfy notification $\rightarrow$ open WISP-RT $\rightarrow$ confirm on Live view $\rightarrow$ review Incidents list.
+\end{itemize}
+
+\textbf{8. Complete mission}
+\begin{itemize}[leftmargin=1.5em, itemsep=0.1em]
+  \item Drone lands automatically. FlightHub~2 shows ``Complete''.
+\end{itemize}
+
+\textbf{9. Review records}
+\begin{itemize}[leftmargin=1.5em, itemsep=0.1em]
+  \item FlightHub~2 $\rightarrow$ Missions $\rightarrow$ History.
+  \item WISP-RT Footage page for incident snapshots and clips.
+\end{itemize}
+
+\textbf{10. End of day}
+\begin{itemize}[leftmargin=1.5em, itemsep=0.1em]
+  \item Confirm drone is seated with cover closed. Confirm no mission in progress. Log out or lock the computer.
+  \item Full system shutdown is \emph{not} required day-to-day. Contact UAV-RT support if maintenance or transport requires powering the Dock off.
+\end{itemize}
+
+\end{tcolorbox}
+
+\vspace{0.6cm}
+
+\begin{tcolorbox}[colback=uavlight, colframe=uavwarn, boxrule=0.6pt,
+  title={\bfseries Pre-Mission Checklist}, coltitle=white,
+  colbacktitle=uavwarn]
+\begin{itemize}[leftmargin=1.5em, itemsep=0.1em]
+  \chk Dock, drone, and camera all Online.
+  \chk Battery $\geq$ 60~\%.
+  \chk Live RGB video visible.
+  \chk Live thermal video visible.
+  \chk AI worker Running.
+  \chk Test push received on phone.
+  \chk Weather within safe limits.
+  \chk Mission selected in FlightHub~2.
+\end{itemize}
+\end{tcolorbox}
+
+\vspace{0.6cm}
+
+\begin{center}
+\small\color{uavgrey}\itshape
+End of Operation \& Delivery Manual. \\
+For technical support, contact the UAV-RT team at UBC Okanagan.
+\end{center}
+
+\end{document}

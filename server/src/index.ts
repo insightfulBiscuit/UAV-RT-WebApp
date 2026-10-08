@@ -30,17 +30,46 @@ import {
   setOverrides,
 } from "./thresholdsService.js";
 import { ntfy } from "./ntfyService.js";
+import { alertStore } from "./alertStore.js";
+import { buildStatusSummary } from "./statusSummary.js";
+import { photoPath, videoPath } from "./alertMediaService.js";
+import { readFile, stat } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { logger } from "./logger.js";
 
 const app = express();
 app.use(express.json());
+
+// ---- HTTP access log: every request, persisted, with method/status/duration. ----
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const t0 = Date.now();
+  res.on("finish", () => {
+    logger.info("http", `${req.method} ${req.originalUrl} → ${res.statusCode} (${Date.now() - t0}ms)`);
+  });
+  next();
+});
 
 let cfg: ReturnType<typeof loadFh2AuthConfig> | null = null;
 try {
   cfg = loadFh2AuthConfig();
 } catch (err) {
-  console.warn(String(err));
-  console.warn("Server will start but /api/* calls will 500 until env is set.");
+  logger.warn("server", String(err));
+  logger.warn("server", "Server will start but /api/* calls will 500 until env is set.");
 }
+
+// ---- Process-level safety net: log crashes before Node exits so the field
+// operator has a record of WHY the server went down, not just that it did.
+// Still exits — Node's default behavior for both events is to terminate,
+// and continuing after a truly uncaught error risks running in a corrupted
+// state, which is worse than a clean restart during a flight test. ----
+process.on("uncaughtException", (err) => {
+  logger.error("process", `uncaughtException: ${err.message}`, { stack: err.stack });
+  process.exit(1);
+});
+process.on("unhandledRejection", (reason) => {
+  logger.error("process", `unhandledRejection: ${(reason as Error)?.message ?? String(reason)}`);
+  process.exit(1);
+});
 
 const requireAuth = (_req: Request, res: Response, next: NextFunction) => {
   if (!cfg) return res.status(500).json({ error: "FlightHub 2 auth missing on server. Set FH2_BASE_URL and FH2_USER_TOKEN in server/.env" });
@@ -427,6 +456,166 @@ app.delete("/api/notifications/topics", wrap(async (req) => {
   return { topics: ntfy.removeTopic(url) };
 }));
 
+// ---- Overview status summary (one blob for the Overview page) ----
+
+app.get("/api/status/summary", wrap(async () => {
+  return buildStatusSummary(cfg);
+}));
+
+app.get("/api/notifications/recent", (_req, res) => {
+  res.json({ sends: ntfy.recentSends(20) });
+});
+
+// ---- Persistent AI alert log ----
+
+app.get("/api/alerts", (req, res) => {
+  const since = Number(req.query.since);
+  const limit = Number(req.query.limit);
+  const alerts = alertStore.list({
+    since: Number.isFinite(since) ? since : undefined,
+    limit: Number.isFinite(limit) ? limit : undefined,
+  });
+  res.json({
+    alerts,
+    ackTs: alertStore.getAckTs(),
+    unreadCount: alertStore.unreadCount(),
+  });
+});
+
+app.post("/api/alerts/ack-all", (_req, res) => {
+  res.json(alertStore.ackAll());
+});
+
+app.post("/api/alerts/clear", wrap(async (req) => {
+  const body = req.body ?? {};
+  if (body.all === true) return alertStore.clearAll();
+  const ids = Array.isArray(body.ids) ? body.ids.filter((x: unknown): x is string => typeof x === "string") : [];
+  if (!ids.length) throw new Fh2Error(400, -1, "Provide { ids: [...] } or { all: true }");
+  return alertStore.clear(ids);
+}));
+
+// ---- Alert media (photo + 5s clip) ----
+
+async function serveMedia(res: Response, filePath: string, contentType: string): Promise<void> {
+  if (!existsSync(filePath)) {
+    res.status(404).json({ error: "media not ready or not available" });
+    return;
+  }
+  const info = await stat(filePath);
+  const buf = await readFile(filePath);
+  res.set("Content-Type", contentType);
+  res.set("Content-Length", String(info.size));
+  res.set("Cache-Control", "public, max-age=86400");
+  res.send(buf);
+}
+
+app.get("/api/alerts/:id/photo.jpg", wrap(async (req, res) => {
+  const rec = alertStore.get(String(req.params.id));
+  if (!rec || !rec.mediaId) {
+    res.status(404).json({ error: "no photo for this alert" });
+    return;
+  }
+  await serveMedia(res, photoPath(rec.mediaId), "image/jpeg");
+}));
+
+app.get("/api/alerts/:id/video.mp4", wrap(async (req, res) => {
+  const rec = alertStore.get(String(req.params.id));
+  if (!rec || !rec.mediaId) {
+    res.status(404).json({ error: "no video for this alert" });
+    return;
+  }
+  await serveMedia(res, videoPath(rec.mediaId), "video/mp4");
+}));
+
+// ---- Forward selected alerts through ntfy (with photo + video) ----
+
+app.post("/api/alerts/forward", wrap(async (req) => {
+  const body = req.body ?? {};
+  const ids: string[] = Array.isArray(body.ids)
+    ? body.ids.filter((x: unknown): x is string => typeof x === "string")
+    : [];
+  if (!ids.length) throw new Fh2Error(400, -1, "ids array required");
+  const urlOverride = typeof body.url === "string" ? body.url : undefined;
+
+  const results: Array<{ id: string; sent: boolean; errors: string[] }> = [];
+  for (const id of ids) {
+    const rec = alertStore.get(id);
+    if (!rec) {
+      results.push({ id, sent: false, errors: ["not found"] });
+      continue;
+    }
+    const withMedia = alertStore.attachMedia(rec);
+    const errors: string[] = [];
+
+    // 1) Text notification. Send with attach header pointing to the photo URL
+    // if we have one — ntfy fetches it server-side and shows an inline image.
+    // Note: ntfy.sh's servers must be able to reach the URL. For localhost
+    // dev, set PUBLIC_MEDIA_BASE to your public tunnel or reverse-proxy URL.
+    const base = process.env.PUBLIC_MEDIA_BASE || `http://localhost:${process.env.PORT || 4000}`;
+    const attach = withMedia.photoUrl ? `${base}${withMedia.photoUrl}` : undefined;
+    const title = `Forwarded: ${rec.class} · ${rec.trigger || "manual"}`;
+    const parts: string[] = [];
+    if (typeof rec.conf === "number") parts.push(`conf ${(rec.conf * 100).toFixed(0)}%`);
+    if (typeof rec.temp_c === "number") parts.push(`${rec.temp_c.toFixed(1)}°C`);
+    parts.push(rec.modality.toUpperCase());
+    parts.push(new Date(rec.ts).toLocaleTimeString());
+    const messageBody = parts.join(" · ");
+
+    const textRes = await ntfy.sendRaw({
+      title,
+      body: messageBody,
+      priority: /critical|extreme|unknownhigh/i.test(rec.trigger) || rec.class === "fire" || rec.class === "smoke" ? "max" : "high",
+      tags: [rec.class === "fire" ? "fire" : rec.class === "smoke" ? "cloud" : "warning"],
+      click: process.env.NTFY_LINK || "http://localhost:5173/",
+      attach,
+      urlOverride,
+    });
+    if (!textRes.ok) errors.push(...textRes.errors);
+
+    // 2) Video: upload the mp4 as a follow-up ntfy message so it appears as
+    // an attachment (ntfy's `PUT` upload mode). Skipped when the file isn't
+    // ready — we don't want to block the whole forward on it.
+    if (withMedia.videoUrl) {
+      const videoErr = await ntfy.uploadFile({
+        filePath: videoPath(rec.mediaId!),
+        filename: `${rec.class}-${rec.id.slice(0, 8)}.mp4`,
+        contentType: "video/mp4",
+        urlOverride,
+      });
+      if (videoErr.length) errors.push(...videoErr);
+    }
+
+    results.push({ id, sent: errors.length === 0, errors });
+  }
+  return { results };
+}));
+
+// ---- Test-seed (dev helper: create fake alerts to exercise the UI) ----
+
+app.post("/api/alerts/test-seed", (req, res) => {
+  const n = Math.min(20, Math.max(1, Number(req.body?.count) || 1));
+  const classes = ["fire", "smoke", "person", "vehicle", "dry_grass"];
+  const triggers = ["combustibleC", "criticalC", "personC", "unknownHighC", ""];
+  const created = [];
+  for (let i = 0; i < n; i++) {
+    const cls = classes[i % classes.length];
+    const trigger = triggers[i % triggers.length];
+    const rec = alertStore.seedForTest({
+      modality: i % 2 === 0 ? "rgb" : "ir",
+      class: cls,
+      trigger,
+      temp_c: cls === "fire" || cls === "smoke" ? 60 + Math.random() * 40 : null,
+      conf: 0.65 + Math.random() * 0.3,
+      box: [0.2, 0.2, 0.5, 0.5],
+      color: cls === "fire" ? "#c83228" : cls === "smoke" ? "#6b6b6b" : "#e87820",
+      seq: i,
+      mediaId: null,
+    });
+    created.push(rec);
+  }
+  res.json({ created });
+});
+
 app.get("/api/tasks", requireCfg, wrap(async (req) => {
   const sn = String(req.query.sn ?? "");
   const from = Number(req.query.from);
@@ -438,14 +627,49 @@ app.get("/api/tasks", requireCfg, wrap(async (req) => {
   return { list: await listTasks(requireProjectConfig(cfg!), { sn, from, to }) };
 }));
 
+// ---- System log (persisted server-side event log; see server/src/logger.ts) ----
+
+app.get("/api/logs", (req, res) => {
+  const since = Number(req.query.since);
+  const limit = Number(req.query.limit);
+  const level = typeof req.query.level === "string" ? req.query.level : undefined;
+  const source = typeof req.query.source === "string" ? req.query.source : undefined;
+  const validLevel = level === "debug" || level === "info" || level === "warn" || level === "error" ? level : undefined;
+  res.json({
+    entries: logger.recent({
+      since: Number.isFinite(since) ? since : undefined,
+      limit: Number.isFinite(limit) ? limit : undefined,
+      level: validLevel,
+      source,
+    }),
+  });
+});
+
+app.get("/api/logs/files", (_req, res) => {
+  res.json({ files: logger.listFiles() });
+});
+
+app.get("/api/logs/files/:day", (req, res) => {
+  const day = String(req.params.day);
+  const content = logger.readDay(day);
+  if (content === null) {
+    res.status(404).json({ error: "no log file for that day" });
+    return;
+  }
+  res.set("Content-Type", "application/x-ndjson");
+  res.set("Content-Disposition", `attachment; filename="system-${day}.log"`);
+  res.send(content);
+});
+
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof Fh2Error) {
+    logger.warn("http", `${err.status} ${err.code}: ${err.message}`);
     return res.status(err.status >= 400 && err.status < 600 ? err.status : 502).json({
       error: err.message,
       code: err.code,
     });
   }
-  console.error(err);
+  logger.error("http", (err as Error)?.message ?? "Unknown error", { stack: (err as Error)?.stack });
   res.status(500).json({ error: (err as Error).message ?? "Unknown error" });
 });
 
@@ -453,23 +677,22 @@ const port = Number(process.env.PORT ?? 4000);
 const httpServer = createServer(app);
 wsHub.attach(httpServer);
 httpServer.listen(port, () => {
-  console.log(`API listening on http://localhost:${port}`);
-  console.log(`WebSocket at ws://localhost:${port}/ws?channel=thermal`);
+  logger.info("server", `API listening on http://localhost:${port}`);
+  logger.info("server", `WebSocket at ws://localhost:${port}/ws?channel=thermal`);
   if (mqttHub.configured()) {
     void (async () => {
       try {
         await mqttHub.ensureConnected();
-        console.log(`MQTT connected: ${process.env.MQTT_BROKER_URL}`);
         const dockSn = process.env.MQTT_DOCK_SN;
         if (dockSn) {
           await subscribeDock(dockSn);
-          console.log(`MQTT subscribed to dock ${dockSn}`);
+          logger.info("server", `MQTT subscribed to dock ${dockSn}`);
         }
       } catch (err) {
-        console.warn(`MQTT connect failed: ${(err as Error).message}`);
+        logger.warn("server", `MQTT connect failed: ${(err as Error).message}`);
       }
     })();
   } else {
-    console.log("MQTT: not configured (MQTT_BROKER_URL blank). Thermal spot metering will fall back to color approximation.");
+    logger.info("server", "MQTT: not configured (MQTT_BROKER_URL blank). Thermal spot metering will fall back to color approximation.");
   }
 });

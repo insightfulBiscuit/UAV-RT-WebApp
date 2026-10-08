@@ -1,0 +1,861 @@
+\documentclass[11pt,letterpaper]{article}
+
+% -------- Packages --------
+\usepackage[margin=0.85in]{geometry}
+\usepackage{graphicx}
+\usepackage[table]{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{fancyhdr}
+\usepackage{amsfonts}
+\usepackage{hyperref}
+\usepackage{parskip}
+\usepackage{tcolorbox}
+\usepackage{lastpage}
+\tcbuselibrary{skins,breakable}
+
+% -------- Colours --------
+\definecolor{uavblue}{RGB}{25,72,120}
+\definecolor{uavgrey}{RGB}{70,70,70}
+\definecolor{uavlight}{RGB}{240,244,250}
+\definecolor{uavwarn}{RGB}{170,60,30}
+\definecolor{uavgood}{RGB}{40,110,60}
+\definecolor{uavtablehdr}{RGB}{25,72,120}
+\definecolor{uavrule}{RGB}{200,210,225}
+
+% -------- Hyperref --------
+\hypersetup{
+  colorlinks=true,
+  linkcolor=uavblue,
+  urlcolor=uavblue,
+  citecolor=uavblue,
+  pdftitle={Regulatory \& Operational Compliance Checklist -- City of Kelowna},
+  pdfauthor={UAV-FRDS Team, UBC Okanagan},
+  breaklinks=true
+}
+
+% -------- Section styling --------
+\titleformat{\section}
+  {\color{uavblue}\Large\bfseries}{\thesection}{0.6em}{}
+\titleformat{\subsection}
+  {\color{uavblue}\large\bfseries}{\thesubsection}{0.5em}{}
+
+% -------- Header / footer --------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{uavgrey}Compliance Checklist}
+\fancyhead[R]{\small\color{uavgrey}City of Kelowna --- UAV-FRDS}
+\fancyfoot[C]{\small\color{uavgrey}Page \thepage\ of \pageref{LastPage}}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% -------- Info box (used sparingly) --------
+\newtcolorbox{infobox}[1][]{
+  enhanced, breakable,
+  colback=uavlight, colframe=uavblue,
+  boxrule=0.6pt, arc=2pt,
+  left=8pt, right=8pt, top=6pt, bottom=6pt,
+  title={\bfseries #1}, coltitle=white,
+  colbacktitle=uavblue, sharp corners=downhill
+}
+
+% -------- Column helpers --------
+% Top-aligned raggedright paragraph column with a fixed width.
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\newcommand{\thead}[1]{\textbf{\color{white}#1}}
+
+% Compact separator rule between checklist rows.
+\newcommand{\itemrule}{\arrayrulecolor{uavrule}\midrule\arrayrulecolor{black}}
+
+% -------- Requirement cell: bold title + small grey body --------
+\newcommand{\reqcell}[2]{\textbf{#1}\newline\small\color{uavgrey}#2}
+
+% -------- Status labels: plain bold text in muted palette colours --------
+\newcommand{\req}{\textbf{\color{uavwarn!85!black}Required}}
+\newcommand{\cond}{\textbf{\color{uavblue}Conditional}}
+\newcommand{\confirm}{\textbf{\color{uavgood!80!black}Confirm}}
+\newcommand{\rec}{\textbf{\color{uavgrey!75!black}Recommended}}
+
+% -------- Booktabs-style table header --------
+% Columns: # | Requirement + purpose | Responsible | Where to obtain | Status
+\newcommand{\checklisthead}{%
+  \toprule
+  \color{uavblue}\bfseries\# &
+  \color{uavblue}\bfseries Requirement / purpose &
+  \color{uavblue}\bfseries Responsible &
+  \color{uavblue}\bfseries Where to obtain &
+  \color{uavblue}\bfseries Status \\
+  \midrule
+}
+
+% =============================================================
+\begin{document}
+
+% -------- Title page --------
+\begin{titlepage}
+  \centering
+  \vspace*{2.2cm}
+  {\color{uavblue}\Huge\bfseries Regulatory \& Operational\\[0.4em] Compliance Checklist\par}
+  \vspace{0.6cm}
+  {\color{uavgrey}\Large City of Kelowna --- UAV-FRDS\par}
+  \vspace{2.4cm}
+  \begin{tcolorbox}[
+    enhanced, colback=uavlight, colframe=uavblue,
+    boxrule=0.6pt, arc=2pt,
+    left=14pt, right=14pt, top=10pt, bottom=10pt,
+    width=0.82\textwidth
+  ]
+  \small
+  The hardware and software are ready to fly. The paperwork isn't. This
+  document lists what the City still needs to get, hold, or renew before
+  it can legally operate the system. Three operating profiles are in
+  scope: \textbf{Advanced VLOS} (initial installation and local test
+  flights), \textbf{Sheltered} (specific operations close to a structure,
+  when the sheltered-operation conditions apply), and \textbf{Level~1
+  Complex lower-risk BVLOS} (future longer-range missions, which needs
+  both a Level~1 Complex pilot certificate and an
+  \textbf{RPAS Operator Certificate (RPOC)} for the City). Everything
+  below is the City's responsibility after handover.
+  \end{tcolorbox}
+  \vfill
+  {\color{uavgrey}\small
+  Prepared as part of the UAV-FRDS handover package.\\
+  Last updated: 2026-09-16. Reflects CARs Part~IX as amended by
+  SOR/2025-70, in force 4~November~2025.\par}
+  \vspace{1cm}
+\end{titlepage}
+
+% -------- Legend --------
+\section*{How to read this checklist}
+\addcontentsline{toc}{section}{How to read this checklist}
+
+Small RPAS (250\,g to 25\,kg), flown by the City in three profiles.
+
+\begin{itemize}[leftmargin=1.4em, itemsep=2pt, topsep=2pt]
+  \item \textbf{Advanced VLOS.} Initial installation and small-area
+        local test flights, with the aircraft in visual line of sight of
+        the pilot at all times. Where the operating site falls inside
+        NAV~CANADA controlled airspace --- which must be confirmed per
+        site, not assumed --- every flight also needs an RPAS Flight
+        Authorization from NAV Drone before take-off (\S3.2).
+  \item \textbf{Sheltered.} A specific operation outside normal VLOS,
+        close to a building or structure. The geometry comes from the
+        definition of \emph{sheltered operation} in CAR~900.01 (less
+        than 61\,m horizontally from the structure, no more than 30\,m
+        above that structure); the CAR~901.74 operational conditions
+        then apply (pilot and control station at the take-off, launch,
+        landing or recovery site during those activities; not more than
+        2\,NM from the pilot, the control station and the visual
+        observer; at least 30\,m from uninvolved persons). Also requires
+        a NAV Drone authorization inside controlled airspace.
+  \item \textbf{Level~1 Complex lower-risk BVLOS.} Longer-range missions
+        (fire response, corridor and utility inspection, remote-site
+        surveys). CARs restrict Level~1 Complex BVLOS to
+        \textbf{uncontrolled airspace}, \textbf{at or below 122\,m
+        (400\,ft) AGL}, \textbf{more than 5\,NM (9.3\,km) from
+        aerodromes listed in the Canada Flight Supplement}, and to
+        \textbf{unpopulated or sparsely populated areas}. CAR~900.01
+        defines a \emph{populated area} as more than 5 people per square
+        kilometre and a \emph{sparsely populated area} as more than 5
+        but not more than 25 people per square kilometre; BVLOS over a
+        sparsely populated area is limited to a small RPA. Any BVLOS
+        outside that envelope --- inside controlled airspace, above
+        122\,m AGL, nearer than 5\,NM to an aerodrome, or over a
+        populated area --- needs an SFOC-RPAS instead.
+\end{itemize}
+
+The Status labels in every table mean:
+\begin{itemize}[leftmargin=1.4em, itemsep=1pt, topsep=2pt]
+  \item \req{}: legally mandatory. Where the label is qualified
+        (``\req{} for BVLOS'', ``\req{} per site''), it is mandatory
+        before any flight in that profile or at that site.
+  \item \cond{}: only triggered by specific mission types or
+        configurations (advertised events, out-of-envelope BVLOS, a
+        declared parachute, and so on).
+  \item \confirm{}: already exists but needs to be verified or renewed
+        on a schedule.
+  \item \rec{}: not legally required, but worth doing.
+\end{itemize}
+
+The regulations cited in the tables all sit inside the
+\emph{Canadian Aviation Regulations} (CARs) Part~IX. The sections that
+come up most often are \S900.01 (definitions), \S900.13 and \S900.16
+(registration), \S900.14 (marking), \S901.23 (procedures), \S901.24
+(pre-flight), \S901.27 (site survey), \S901.29 (pre-take-off condition
+of the system), \S901.48 (records), \S901.49 (incidents),
+\S901.63--901.66 (Advanced pilot), \S901.69--901.70 (safety assurance
+declarations and modifications), \S901.71--901.74 (Advanced, extended
+VLOS and Sheltered), \S901.87--901.90 (BVLOS and the Level~1 Complex
+pilot certificate), and \S901.213--901.221 (RPAS Operator Certificate).
+Full text:
+\href{https://laws-lois.justice.gc.ca/eng/regulations/sor-96-433/section-900.01.html}{CARs Part IX on the Justice Laws Website}.
+
+\tableofcontents
+\newpage
+
+% =============================================================
+\section{Pilot}
+% =============================================================
+
+\renewcommand{\arraystretch}{1.35}
+\setlength{\tabcolsep}{6pt}
+\begin{longtable}{@{}L{0.28in} L{2.20in} L{0.85in} L{1.95in} L{0.85in}@{}}
+\checklisthead
+\endfirsthead \checklisthead \endhead
+
+1.1 &
+\reqcell{Pilot Certificate, Advanced Operations}{Legal authority for \textbf{both} the Advanced VLOS profile and the Sheltered profile, and the prerequisite for Level~1 Complex. CAR~901.63 requires the holder to be at least 16; CAR~901.64 governs issuance.} &
+City &
+\href{https://tc.canada.ca/en/aviation/drone-safety/drone-pilot-licensing/getting-drone-pilot-certificate}{TC Drone Portal}. Small Advanced exam plus an in-person flight review with a TC-approved reviewer. &
+\req{} \\ \itemrule
+
+1.2 &
+\reqcell{Pilot recency (24 months)}{CAR~901.65 does not expire the certificate --- it prohibits \emph{operating} unless a qualifying event falls in the preceding 24 months. Qualifying events are issuance of the certificate itself, a pass on one of the listed exams, a listed flight review, or recurrent training under Standard~921.04. A newly certified pilot is current on the strength of issuance alone.} &
+City &
+\href{https://tc.canada.ca/en/aviation/drone-safety/drone-pilot-licensing/complete-flight-review-drones}{TC flight review} or approved recurrent training. &
+\confirm{} \\ \itemrule
+
+1.3 &
+\reqcell{Pilot Certificate, Level~1 Complex}{Required for lower-risk BVLOS (CAR~901.89 requires the BVLOS pilot to be at least 18 and hold this certificate; CAR~901.90 governs issuance). Sequence: pass the Advanced exam, complete 20 hours of RPAS ground school at a flight school, pass the Level~1 Complex exam, then complete a Level~1 Complex flight review --- which must fall \textbf{within the 12 months before the date of application} (CAR~901.90(e)). Plan the review close to the application, not years ahead.} &
+City &
+\href{https://tc.canada.ca/en/aviation/drone-safety/drone-pilot-licensing/take-drone-pilot-online-exam/level-1-complex}{TC Level 1 Complex}. \$125 CAD certificate issuance fee, with a separate exam fee payable per attempt --- confirm both current amounts on the TC page. &
+\req{} for BVLOS \\ \itemrule
+
+1.4 &
+\reqcell{Documents accessible in-flight}{Pilot certificate and recency evidence must be easily accessible at the control station (CAR~901.66).} &
+City (pilot) &
+Digital copy on the controller or tablet. &
+\req{} \\ \itemrule
+
+\end{longtable}
+
+% =============================================================
+\section{Aircraft}
+% =============================================================
+
+\begin{longtable}{@{}L{0.28in} L{2.20in} L{0.85in} L{1.95in} L{0.85in}@{}}
+\checklisthead
+\endfirsthead \checklisthead \endhead
+
+2.1 &
+\reqcell{Aircraft Registration}{CAR~900.13 prohibits operating an RPA of 250\,g or more unless it is registered; CAR~900.16 governs the application and the Certificate of Registration. Fee increased to \$10 CAD per airframe on 1 April 2025. Register every airframe in the fleet separately.} &
+City &
+\href{https://tc.canada.ca/en/aviation/drone-safety/registering-your-drone}{TC Registering your drone} (Drone Management Portal). &
+\req{} \\ \itemrule
+
+2.2 &
+\reqcell{Registration number marked on aircraft}{CAR~900.14: the registration number issued under CAR~900.16(3)(a) must be clearly visible on the remotely piloted aircraft.} &
+City &
+Permanent marker, engraving, or durable label. &
+\req{} \\ \itemrule
+
+2.3 &
+\reqcell{Manufacturer Safety Assurance Declaration, Standard~922.04 (Operations in Controlled Airspace)}{Standard~922.04 is titled \emph{Operations in Controlled Airspace} --- there is no Standard~922 subsection named ``sheltered''. CAR~901.69 lists the operations that trigger a declaration, and \textbf{two separate paragraphs apply here}: 901.69(a), VLOS operation of a small RPA in controlled airspace (the Advanced VLOS profile), and 901.69(d), a sheltered operation of a small RPA in controlled airspace. Confirm the manufacturer's declaration covers the \emph{specific} operation intended, not merely ``controlled airspace'' in the abstract. Modifications may invalidate it (CAR~901.70).} &
+DJI (City verifies) &
+\href{https://tc.canada.ca/en/aviation/drone-safety/submitting-drone-safety-assurance-declaration}{TC Safety Assurance Declarations}. &
+\confirm{} \\ \itemrule
+
+2.4 &
+\reqcell{Manufacturer Safety Assurance Declaration, Level~1 Complex BVLOS}{Separate from 2.3. Confirms the aircraft and its configurable elements are declared against the Standard~922 subsections applicable to the intended BVLOS operation (see~2.7). For a small RPA flying BVLOS in uncontrolled airspace over a sparsely populated area, Transport Canada requires a \textbf{pre-validated declaration} --- the declaration must be pre-validated by TC before submission. City must verify a valid declaration is on file before any BVLOS flight.} &
+DJI (City verifies) &
+\href{https://tc.canada.ca/en/aviation/drone-safety/submitting-drone-safety-assurance-declaration}{TC Safety Assurance Declarations}. &
+\confirm{} for BVLOS \\ \itemrule
+
+2.5 &
+\reqcell{Configuration baseline record}{Snapshot of model, firmware, controller, batteries, payload, accessories. Update after any change.} &
+City &
+Internal record. &
+\req{} \\ \itemrule
+
+2.6 &
+\reqcell{Parachute recovery system}{Not universally required for every Level~1 Complex BVLOS operation. Becomes required only when the parachute is part of the specific Safety Assurance Declaration configuration, or is called for by the RPOC operational safety case for the mission. If in the configuration, it must be included in the baseline (item~2.5) and treated as a maintained aircraft component. AVSS completed ASTM~F3322-24a testing for the DJI Matrice~4 series in May~2025; confirm current product availability and the exact variant for the delivered airframe before relying on it.} &
+City &
+Vendor such as \href{https://avss.co/}{AVSS}. Confirm the specific model is listed on the aircraft's TC Safety Assurance Declaration or covered by the RPOC safety case. &
+\cond{} \\ \itemrule
+
+2.7 &
+{\textbf{Aircraft safety configuration for BVLOS}\newline
+\small\color{uavgrey}%
+Level~1 Complex lower-risk BVLOS operations require the aircraft and
+configurable-element combination to have the applicable Safety
+Assurance Declaration --- pre-validated by Transport Canada where that
+applies (see~2.4) --- for the intended operation. The relevant
+Standard~922 subsections, by their exact titles, are:
+\begin{itemize}[leftmargin=1em, itemsep=1pt, topsep=2pt, parsep=0pt]
+  \item \S922.08 Containment
+  \item \S922.09 Command and Control Link Reliability and Lost Link
+        Behaviour
+  \item \S922.10 Detect, Alert, and Avoid Systems (where applicable)
+  \item \S922.11 Control Station Design
+  \item \S922.12 Demonstrated Environmental Envelope (where applicable)
+\end{itemize}
+A generic ADS-B receiver, a visual observer, or a software geofence
+does not by itself satisfy these requirements. The applicable
+declaration must be in place for the specific aircraft and
+configurable-element combination the City intends to fly. Treat this
+list as the subsections most likely to apply rather than a closed set
+--- Standard~922 also carries \S922.07 \emph{Safety and Reliability},
+and which subsections bind depends on the specific operation. Confirm
+against the declaration itself.} &
+City &
+Aircraft configuration, matched against
+\href{https://tc.canada.ca/en/corporate-services/acts-regulations/list-regulations/canadian-aviation-regulations-sor-96-433/standards/standard-922-rpas-safety-assurance}{Standard~922}
+and the RPOC operations manual. &
+\req{} for BVLOS \\ \itemrule
+
+2.8 &
+\reqcell{Declaration for operations near or over people}{Easy to miss, and it applies to ordinary Advanced VLOS, not just BVLOS. CAR~901.69(b) and (c) trigger a separate declaration for VLOS operation of a small RPA less than 30\,m from an uninvolved person, and again at less than 5\,m --- matching Standard~922.05 \emph{Operations near People} and 922.06 \emph{Operations over People}. The Sheltered profile keeps 30\,m clear so it does not bite there, but any Advanced VLOS work closer than 30\,m to uninvolved people does need the declaration.} &
+DJI (City verifies) &
+\href{https://tc.canada.ca/en/aviation/drone-safety/submitting-drone-safety-assurance-declaration}{TC Safety Assurance Declarations}. &
+\cond{} \\
+
+\end{longtable}
+
+\newpage
+
+% =============================================================
+\section{Airspace Authorization}
+% =============================================================
+
+\begin{longtable}{@{}L{0.28in} L{2.20in} L{0.85in} L{1.95in} L{0.85in}@{}}
+\checklisthead
+\endfirsthead \checklisthead \endhead
+
+3.1 &
+\reqcell{NAV Drone account (organizational)}{The account through which NAV~CANADA authorizations are requested. Register to the City, not to an individual.} &
+City &
+\href{https://portal.navdrone.ca/}{NAV Drone Web}, or the NAV Drone mobile app. Link the Advanced certificate, aircraft, and a verified phone number to the account. &
+\req{} \\ \itemrule
+
+3.2 &
+\reqcell{NAV~CANADA RPAS Flight Authorization}{Required per flight in controlled airspace (CAR~901.71). NAV~CANADA divides each control zone into $\frac{1}{2}\times\frac{1}{2}$\,NM grid cells with an assigned altitude threshold; NAV Drone auto-approves when every overlapping cell is above 100\,ft, and routes the request to Air Traffic Services for manual review when any cell is at or below 100\,ft, which takes longer. Separately, CAR~901.72 requires the pilot to comply with all air traffic control instructions directed at the pilot. Note also CAR~901.71(2): an authorization from the air traffic services provider can permit operating \emph{above} the CAR~901.25 altitude limits in controlled airspace --- if the mission needs that, it must be requested, not assumed.} &
+City (pilot) &
+Submit in NAV Drone. Wait for status = \textbf{Accepted}. &
+\req{} per flight \\ \itemrule
+
+3.3 &
+\reqcell{RPAS Operation Summary in-flight}{The authorization PDF must be easily accessible during the operation (CAR~901.71(3)).} &
+City (pilot) &
+Download from NAV Drone. Keep a local copy on the tablet. &
+\req{} \\ \itemrule
+
+3.4 &
+\reqcell{Aerodrome and heliport proximity check}{CAR~901.73: no operation less than 3~NM from the \emph{centre} of an airport, or less than 1~NM from the \emph{centre} of a heliport, unless conducted in accordance with the established procedure for that airport or heliport. Measure from the published centre coordinates, not from the property boundary or the built-up area.} &
+City (pilot) &
+NAV Drone geo-zones and site survey. Identify every airport, aerodrome and heliport --- including hospital and private helipads --- whose radius reaches the operating area. &
+\req{} per site \\ \itemrule
+
+3.5 &
+\reqcell{NOTAM review}{Required per flight (CAR~901.24).} &
+City (pilot) &
+NAV Drone in-app, or \href{https://plan.navcanada.ca/wxrecall/}{NAV~CANADA NOTAMs}. &
+\req{} per flight \\ \itemrule
+
+3.6 &
+\reqcell{Level~1 Complex BVLOS operating envelope}{All four limits must hold at once: \textbf{uncontrolled airspace}; \textbf{at or below 122\,m (400\,ft) AGL}; \textbf{more than 5\,NM (9.3\,km) from aerodromes listed in the Canada Flight Supplement}; and \textbf{unpopulated or sparsely populated area} (CAR~900.01: populated $>$5 people/km\textsuperscript{2}; sparsely populated $>$5 but $\leq$25 people/km\textsuperscript{2}, and small RPA only). The population limit is usually the binding one: a routine patrol over a built-up municipal area does \textbf{not} qualify no matter what the airspace class is, and needs an SFOC-RPAS instead (see~4.3).} &
+City &
+Site-planning step. Verify airspace and aerodrome distance in NAV Drone, and population density against Statistics Canada census dissemination-block data, before every BVLOS flight. &
+\req{} for BVLOS \\
+
+\end{longtable}
+
+\newpage
+
+% =============================================================
+\section{Operational Approvals (BVLOS \& Advertised Events)}
+% =============================================================
+
+\begin{longtable}{@{}L{0.28in} L{2.20in} L{0.85in} L{1.95in} L{0.85in}@{}}
+\checklisthead
+\endfirsthead \checklisthead \endhead
+
+4.1 &
+\reqcell{RPAS Operator Certificate (RPOC)}{Since 4~November~2025, CAR~901.88 requires anyone operating under the BVLOS division to be an RPAS operator --- or an employee, agent or representative of one --- and to comply with the conditions in that operator's certificate. The RPOC is an \emph{organizational operating framework}, not a single certificate or single application. It formally establishes how the City will run, maintain, and oversee its RPAS operations as an organization. CAR~901.213 requires the holder to be Canadian or incorporated under Canadian law, which a municipality satisfies. Submitted via the TC Drone Management Portal; guidance in AC~901-002.} &
+City &
+\href{https://tc.canada.ca/en/aviation/drone-safety/drone-pilot-licensing/apply-rpas-operator-certificate-rpoc}{TC Apply for an RPOC}. &
+\req{} for BVLOS \\ \itemrule
+
+4.2 &
+{\textbf{RPOC framework: manuals, personnel, and processes}\newline
+\small\color{uavgrey}%
+Content the City must have in place to support an RPOC application, per
+\href{https://tc.canada.ca/sites/default/files/2025-10/AC_901-002_issue_2.pdf}{AC~901-002}:
+\begin{itemize}[leftmargin=1em, itemsep=1pt, topsep=2pt, parsep=0pt]
+  \item A named \textbf{Accountable Executive (AE)} --- CAR~901.214
+        requires the application to name one, and the AE owns the
+        processes. Name this person first; everything else reports
+        into the role.
+  \item \textbf{RPAS Operations Manual} (CAR~901.217, Appendix~A
+        template): flight planning, normal and emergency procedures,
+        roles, and operational limitations.
+  \item \textbf{Safety-risk-management processes} (CAR~901.218,
+        Appendix~C template): setting safety goals; identifying,
+        reporting, analyzing and mitigating hazards; corrective action;
+        and safekeeping of those records. Transport Canada's term is
+        \emph{processes}, not ``SMS'' --- do not size this like a
+        CARs~107 SMS.
+  \item \textbf{Training program} (CAR~901.219) for pilots, visual
+        observers, and any other operating personnel.
+  \item \textbf{Maintenance Control Manual (MCM)} (CAR~901.221,
+        Appendix~B template), and a designated \textbf{Person
+        Responsible for Maintenance (PRM)} with clearly assigned
+        responsibilities.
+\end{itemize}
+AC~901-002 scales the expectation to the operation: lower-risk work
+(low altitude, low population density, uncontrolled airspace) needs
+less robust processes than higher-risk work. None of this can be
+outsourced wholesale; it describes how the City itself operates the
+system. Vendor or consultant support is optional.} &
+City &
+Internal, per \href{https://tc.canada.ca/en/aviation/reference-centre/advisory-circulars/advisory-circular-ac-no-901-002}{AC~901-002}. &
+\req{} for BVLOS \\ \itemrule
+
+4.3 &
+\reqcell{SFOC-RPAS (Special Flight Operations Certificate)}{Needed for operations \emph{outside} the Level~1 Complex envelope: BVLOS in \textbf{controlled airspace}, over a \textbf{populated area}, above 122\,m AGL, within 5\,NM of an aerodrome, RPAS over 150\,kg, dangerous payloads, and advertised events. BVLOS in an aerodrome environment is classed high-complexity. TC's published service standard is \textbf{60 business days} for both medium-complexity (CAR~903.02(3)) and high-complexity (CAR~903.02(4)) applications.} &
+City &
+\href{https://tc.canada.ca/en/aviation/drone-safety/drone-pilot-licensing/get-permission-special-drone-operations}{TC Get permission for special drone operations}. Guidance in
+\href{https://tc.canada.ca/en/aviation/reference-centre/advisory-circulars/advisory-circular-ac-no-903-002}{AC~903-002}. &
+\cond{} \\ \itemrule
+
+4.4 &
+\reqcell{SFOC for advertised events}{An SFOC is required to fly at an advertised event regardless of category --- including a microdrone under 250\,g, extended to microdrones on 1~April~2025. An advertised event is an outdoor event advertised to the public (concert, festival, market, sporting event) to which the public has access; the trigger is intending to fly \textbf{within 30\,m (100\,ft) of the event boundaries}. Private, invitation-only events and events advertised only within a private group are excluded. Relevant to any City event the drone might be tasked to cover.} &
+City &
+Same TC SFOC-RPAS process as 4.3; see
+\href{https://tc.canada.ca/en/aviation/drone-safety/drone-pilot-licensing/get-permission-special-drone-operations/flying-your-drone-advertised-event}{Flying your drone at an advertised event}. &
+\cond{} \\
+
+\end{longtable}
+
+\newpage
+
+% =============================================================
+\section{Site Assessment \& Operating Volume}
+% =============================================================
+
+\begin{longtable}{@{}L{0.28in} L{2.20in} L{0.85in} L{1.95in} L{0.85in}@{}}
+\checklisthead
+\endfirsthead \checklisthead \endhead
+
+5.1 &
+\reqcell{Site survey (per location)}{Documented survey covering airspace, NOTAMs, take-off / launch / landing / recovery, other aircraft, airports / heliports, obstacles, weather / environment, and (for Sheltered) horizontal distance from uninvolved persons (CAR~901.27).} &
+City (pilot) &
+Internal template, one completed and signed survey per operating
+location; re-survey when site conditions change. &
+\req{} per site \\ \itemrule
+
+5.2 &
+{\textbf{Sheltered operating volume defined}\newline
+\small\color{uavgrey}%
+Per-site boundaries the aircraft must respect \emph{simultaneously}
+throughout the flight. The first two come from the definition of
+\emph{sheltered operation} in CAR~900.01; the last two are the
+operational constraints in CAR~901.74(1).
+\begin{itemize}[leftmargin=1em, itemsep=1pt, topsep=2pt, parsep=0pt]
+  \item Less than 61\,m (200\,ft) horizontally from the structure.
+  \item No more than 30\,m (100\,ft) above that structure.
+  \item No more than 2\,NM (about 3.7\,km) from the pilot, the control
+        station \textbf{and} the visual observer.
+  \item At least 30\,m (100\,ft) from any uninvolved person, measured
+        horizontally, at any altitude.
+\end{itemize}
+Draw the resulting volume on the site diagram. All four boundaries
+must hold at every point in the flight.} &
+City (pilot) &
+Site diagram. &
+\req{} per site (Sheltered) \\ \itemrule
+
+5.3 &
+\reqcell{People-control plan (Sheltered)}{The 30\,m distance from uninvolved persons (CAR~901.74(1)(c)) is not waived by the structure. Use barriers, spotters, scheduling, or Bylaw / RCMP coordination as needed. For Level~1 Complex BVLOS, the equivalent obligation is met through the containment volume and safety case in the RPOC operations manual, not the 30\,m rule.} &
+City &
+Internal plan, documented per site. &
+\req{} per site \\ \itemrule
+
+5.4 &
+{\textbf{Take-off and landing site, plus pilot proximity rule}\newline
+\small\color{uavgrey}%
+Under CAR~901.74(1) the pilot and control station:
+\begin{itemize}[leftmargin=1em, itemsep=1pt, topsep=2pt, parsep=0pt]
+  \item must be \textbf{at the take-off, launch, landing, or recovery
+        site} at the moment those activities occur (CAR~901.74(1)(a));
+  \item during the rest of the flight, must remain within
+        \textbf{2\,NM (about 3.7\,km)} of the aircraft
+        (CAR~901.74(1)(b)).
+\end{itemize}
+The pilot does not have to stand on the pad for the whole flight. They
+must be at the pad \emph{during} take-off and landing, and within 2\,NM
+of the aircraft \emph{during} the flight.
+
+\textbf{Automated and remotely launched operations.} A launch commanded
+from a remote console, with no pilot and control station present at the
+pad, does not meet CAR~901.74(1)(a). Where the system is launched from
+a fixed enclosure or dock, either station the pilot and control station
+at the pad for take-off, launch, landing and recovery, or conduct the
+operation under an authority that does not rely on CAR~901.74 --- which
+means an SFOC-RPAS. Resolve this before the first flight, not after.} &
+City &
+Marked on the site diagram. Referenced in the SOP as the designated pad
+location, with the launch method stated explicitly. &
+\req{} per site \\
+
+\end{longtable}
+
+\newpage
+
+% =============================================================
+\section{Operating Procedures}
+% =============================================================
+
+\begin{longtable}{@{}L{0.28in} L{2.20in} L{0.85in} L{1.95in} L{0.85in}@{}}
+\checklisthead
+\endfirsthead \checklisthead \endhead
+
+6.1 &
+\reqcell{Normal operating procedures}{Covers pre-flight, take-off, launch, approach, landing, and recovery (CAR~901.23).} &
+City &
+Internal SOP document. &
+\req{} \\ \itemrule
+
+6.2 &
+\reqcell{Emergency procedures}{Covers control-station failure, equipment failure, aircraft failure, loss of C2, fly-away, flight termination, and conflicting traffic (CAR~901.23).} &
+City &
+Internal SOP document. &
+\req{} \\ \itemrule
+
+6.3 &
+\reqcell{Lost-link and RTH procedure, per site}{DJI's default RTH behaviour must be evaluated for every site. Set the climb altitude, the first waypoint, GNSS-degraded behaviour, and abort logic based on the structure being inspected.} &
+City &
+Per-site SOP and aircraft configuration. &
+\req{} per site \\ \itemrule
+
+6.4 &
+\reqcell{Pre-flight information review}{Weather, NOTAMs, NAV Drone authorization, aircraft condition, pilot qualification, and people-control status (CAR~901.24).} &
+City (pilot) &
+Internal checklist. Signed off in the flight log. &
+\req{} per flight \\ \itemrule
+
+6.5 &
+\reqcell{Pre-take-off condition check}{CAR~901.29 is a separate obligation from the 901.24 information review. Before every take-off or launch the pilot must ensure the aircraft is serviceable; that the system has been maintained and all mandatory actions completed per the manufacturer's or declarant's instructions; and that all equipment required by the regulations or those instructions is installed and serviceable.} &
+City (pilot) &
+Internal checklist, cross-referenced to the maintenance record (\S7.2). &
+\req{} per flight \\
+
+\end{longtable}
+
+\newpage
+
+% =============================================================
+\section{Records the City Must Keep}
+% =============================================================
+
+\begin{longtable}{@{}L{0.28in} L{2.20in} L{0.85in} L{1.95in} L{0.85in}@{}}
+\toprule
+\color{uavblue}\bfseries\# &
+\color{uavblue}\bfseries Record / purpose &
+\color{uavblue}\bfseries Responsible &
+\color{uavblue}\bfseries Where kept &
+\color{uavblue}\bfseries Retention \\
+\midrule
+\endfirsthead
+\toprule
+\color{uavblue}\bfseries\# &
+\color{uavblue}\bfseries Record / purpose &
+\color{uavblue}\bfseries Responsible &
+\color{uavblue}\bfseries Where kept &
+\color{uavblue}\bfseries Retention \\
+\midrule
+\endhead
+
+7.1 &
+\reqcell{Flight logs}{CAR~901.48(1)(a): the names of the pilots and other crew members involved in each flight, and the time of each flight or series of flights. The duty sits with the \emph{owner} of the system. Must be made available to the Minister on request.} &
+City & Log file or app. & 12 months minimum (CAR~901.48(2)) \\ \itemrule
+
+7.2 &
+\reqcell{Maintenance records}{CAR~901.48(1)(b): mandatory actions and any other maintenance, modification or repair, with who performed it, the date, the part or equipment installed for a modification, and any instructions provided. Covers firmware, battery cycles, propeller changes, and inspections. Note CAR~901.48(3): on transfer of ownership these records must be delivered to the new owner --- confirm they were handed over at delivery.} &
+City & Per-airframe technical record. & 24 months minimum (CAR~901.48(2)) \\ \itemrule
+
+7.3 &
+\reqcell{Incident analysis records (CAR~901.49)}{After a CAR~901.49 event, operations must stop until the cause has been analyzed and corrective action taken. The triggering list is: injury requiring medical attention; unintended contact between the aircraft and a person; unanticipated damage to airframe, control station, payload or C2 links affecting performance or flight characteristics; the aircraft not being kept within its horizontal boundaries or altitude limits; collision or risk of collision with another aircraft; the aircraft becoming uncontrollable, flying away or going missing; \textbf{and, under 901.49(1)(g), any other incident for which a police report has been filed or which has resulted in a Civil Aviation Daily Occurrence Report} --- that last paragraph is the link to item~8.1. The analysis record must be kept for \textbf{12 months} after it is created and made available to the Minister on request. The City may retain it longer under internal policy.} &
+City & Internal incident log with cause analysis and corrective action. & 12 months minimum (CAR~901.49); longer per City policy \\ \itemrule
+
+7.4 &
+\reqcell{Training and competency records}{CAR~901.65(2) requires the pilot to keep a record of every recency activity completed under 901.65(1)(b), including the dates. This is a regulatory retention period, not a matter of internal policy. Internal type competency on the delivered airframe sits alongside it.} &
+City & HR or training file. & 24 months minimum (CAR~901.65(2)) \\ \itemrule
+
+7.5 &
+\reqcell{Authorizations and declarations file}{Registrations, NAV~CANADA authorizations, safety-assurance PDFs, and any SFOC or RPOC documents.} &
+City & Central digital folder. & Life of program \\
+
+\end{longtable}
+
+% =============================================================
+\section{Incident Reporting}
+% =============================================================
+
+\begin{longtable}{@{}L{0.28in} L{2.20in} L{0.85in} L{1.95in} L{0.85in}@{}}
+\toprule
+\color{uavblue}\bfseries\# &
+\color{uavblue}\bfseries Requirement / purpose &
+\color{uavblue}\bfseries Responsible &
+\color{uavblue}\bfseries Where to report &
+\color{uavblue}\bfseries Status \\
+\midrule
+\endfirsthead
+\toprule
+\color{uavblue}\bfseries\# &
+\color{uavblue}\bfseries Requirement / purpose &
+\color{uavblue}\bfseries Responsible &
+\color{uavblue}\bfseries Where to report &
+\color{uavblue}\bfseries Status \\
+\midrule
+\endhead
+
+8.1 &
+\reqcell{Transport Canada drone-incident report}{Transport Canada's single-entry-point online tool. CAR~901.49 itself does not automatically require an external report for every event; it requires the operation to stop, the cause to be analyzed, corrective action to be taken, and the analysis record to be kept for 12 months (see item~7.3). File through this tool when the event is one TC wants informed of (for example a Civil Aviation Daily Occurrence Report was raised, or the event is otherwise reportable under the Aeronautics Act).} &
+City &
+\href{https://tc.canada.ca/en/aviation/drone-safety/report-drone-incident}{TC Report a drone incident}. &
+\cond{} \\ \itemrule
+
+8.2 &
+\reqcell{Transportation Safety Board (TSB) report}{Separate from the TC tool, and \textbf{do not apply a weight threshold to the duty to report}. A drone is an aircraft under the \emph{Canadian Transportation Accident Investigation and Safety Board Act}, and TSB states that all aviation occurrences listed in subsection~2(1) of the \emph{Transportation Safety Board Regulations} involving a drone, \textbf{regardless of its weight}, must be reported. The 25\,kg figure is one of TSB's \emph{investigation} criteria, not the reporting trigger --- TSB investigates where an RPA over 25\,kg is in a reportable accident, where a person is killed or seriously injured by direct contact with a small RPA (250\,g to 25\,kg) including detached parts, or where an RPA of any size collides with a manned aircraft. \textbf{Who reports:} owner, operator, pilot-in-command, or any crew member. \textbf{Timing:} initial report as soon as possible by the quickest means, then a full report within \textbf{30 days} (TSB Regs s.~2(3)).} &
+City &
+\href{https://www.tsb.gc.ca/eng/incidents-occurrence/aviation/index.html}{TSB Report an air transportation occurrence}. Initial report by phone 24/7 at 1-800-387-3557 or 819-994-3741; full report via the online or PDF form. &
+\cond{} on a reportable occurrence \\
+
+\end{longtable}
+
+\newpage
+
+% =============================================================
+\section{Insurance}
+% =============================================================
+
+\begin{longtable}{@{}L{0.28in} L{2.20in} L{0.85in} L{1.95in} L{0.85in}@{}}
+\checklisthead
+\endfirsthead \checklisthead \endhead
+
+9.1 &
+\reqcell{Aviation / RPAS liability insurance}{Not a CARs requirement. CAR~606.02(1), which imposes liability insurance on aircraft owners, applies to ``every owner of an aircraft, \emph{other than a remotely piloted aircraft}'' --- RPAS are expressly carved out. Transport Canada recommends coverage. It becomes mandatory only where it is a condition of an SFOC or a specific approval, or where City policy requires it. A standard municipal general-liability policy will not respond because of the aviation exclusion, so aviation-specific coverage is what applies. Municipal norm is \$2M to \$5M CAD in liability limit; the City's Risk Management group sets the exact figure.} &
+City (Risk Mgmt) &
+Any Canadian broker offering aviation liability, either the City's existing broker or a specialist aviation broker. &
+\rec{} / \confirm{} with City Risk Management; may be required for SFOC operations \\ \itemrule
+
+9.2 &
+\reqcell{Certificate of Insurance accessible in-flight}{Not a CARs requirement, but useful for permits and after an incident.} &
+City &
+From the broker once the policy is bound. &
+\rec{} \\
+
+\end{longtable}
+
+\newpage
+
+% =============================================================
+\section{Kelowna-Specific \& Municipal}
+% =============================================================
+
+\begin{longtable}{@{}L{0.28in} L{2.20in} L{0.85in} L{1.95in} L{0.85in}@{}}
+\checklisthead
+\endfirsthead \checklisthead \endhead
+
+10.1 &
+\reqcell{Controlled airspace around Kelowna International (CYLW)}{Treat these as two separate tests, resolved per site rather than assumed. \textbf{(a)~Controlled airspace:} CYLW has an irregularly shaped Class~D control zone. Any operation inside it needs a NAV~CANADA authorization (CAR~901.71, item~3.2), and Level~1 Complex BVLOS cannot legally happen inside controlled airspace at all. \textbf{(b)~The 3~NM airport ring:} a separate rule (CAR~901.73, item~3.4) measured from the airport centre. The two areas are not the same shape and do not have the same boundary --- a site can sit inside the control zone while being well outside 3~NM. Determine both for the actual operating location; do not infer either from the other.} &
+City (pilot) & NAV Drone geo-zones, checked per site. & \req{} per flight in controlled airspace \\ \itemrule
+
+10.2 &
+\reqcell{Hospital and private heliports (1~NM)}{Operations less than 1~NM from the centre of a heliport must follow that heliport's established procedure or be authorized (CAR~901.73). Hospital helipads are the common case; private and industrial helipads also count and are easy to miss.} &
+City (pilot) & Site survey plus NAV Drone. Coordinate with the heliport operator (for a hospital pad, the health authority) if the survey shows overlap. & \cond{} \\ \itemrule
+
+10.3 &
+\reqcell{Provincial parks and Parks Canada lands}{BC Parks and Parks Canada impose their own drone restrictions, independent of CARs.} &
+City &
+\href{https://parks.canada.ca/voyage-travel/regles-rules/drones}{Use of drones at Parks Canada places} and BC Parks land-use policy. Drone use is prohibited at Parks Canada places without a Restricted Activity Permit from the superintendent. &
+\cond{} \\ \itemrule
+
+10.4 &
+\reqcell{FOIPPA Privacy Impact Assessment (PIA)}{The delivered system captures video and AI alerts, so it collects personal information. This is \textbf{statutory, not best practice}: FOIPPA s.~69(5.3) requires the head of a BC public body to conduct a PIA, in accordance with the responsible minister's directions, on a new initiative for which no PIA has been done --- and again before any significant change to an existing one. Complete it before operational deployment, and repeat it if the AI detection scope, retention period, or sharing changes. Not a Transport Canada matter, and not waived by anything in this checklist.} &
+City (Privacy Officer) & Internal PIA process, per the responsible minister's directions. & \req{} before deployment (FOIPPA s.~69(5.3)) \\ \itemrule
+
+10.5 &
+\reqcell{Landowner permission for take-off and landing}{A property-law matter, not a CARs matter. Even municipal land may have overlays such as parks, utilities, or First Nations title.} &
+City & Internal land-use confirmation. & \confirm{} per site \\
+
+\end{longtable}
+
+% =============================================================
+\section{Recommended: Pilot Flight Package}
+% =============================================================
+
+Two items in this checklist are hard accessibility requirements ---
+\S1.4 (CAR~901.66, pilot certificate and recency evidence) and \S3.3
+(CAR~901.71(3), the airspace authorization). The Certificate of
+Registration (\S2.1) is not itself subject to a Part~IX in-flight
+accessibility rule, but an inspector will ask for it, so carry it
+anyway. Rather than hunt
+through email, phone folders, and cloud drives from the field, we
+suggest the pilot carries a single pack. Ideally a dedicated tablet, or
+a small binder if a tablet is not practical. It holds everything
+Transport Canada or NAV~CANADA might ask to see, plus the blank
+templates the pilot fills in before each flight.
+
+\begin{infobox}[What goes in the pack]
+Items that don't change often:
+\begin{itemize}[leftmargin=1.4em, itemsep=1pt, topsep=2pt]
+  \item Pilot Certificate, Advanced Operations (and Level~1 Complex
+        once issued). See \S1.1 and \S1.3.
+  \item Pilot recency evidence (\S1.2).
+  \item Aircraft Certificate of Registration (\S2.1).
+  \item Manufacturer Safety Assurance Declarations for Sheltered and
+        BVLOS (\S2.3, \S2.4).
+  \item Aircraft configuration baseline snapshot (\S2.5).
+  \item Parachute serial and inspection record --- \emph{only if} a
+        parachute forms part of the declared configuration or the RPOC
+        safety case (\S2.6).
+  \item Normal, emergency, and lost-link SOPs (\S6.1 to \S6.3).
+  \item Certificate of Insurance (\S9.2).
+\end{itemize}
+
+Items that change with the site:
+\begin{itemize}[leftmargin=1.4em, itemsep=1pt, topsep=2pt]
+  \item Site survey form (\S5.1).
+  \item Sheltered operating-volume diagram: the four boundaries
+        under 61\,m, at or under 30\,m above the structure, within
+        2\,NM of the pilot, and 30\,m clear of uninvolved persons
+        (\S5.2).
+  \item People-control plan (\S5.3).
+  \item Take-off, launch, landing, and recovery diagram (\S5.4).
+\end{itemize}
+
+Filled in per flight:
+\begin{itemize}[leftmargin=1.4em, itemsep=1pt, topsep=2pt]
+  \item NAV~CANADA RPAS Operation Summary showing status = \textbf{Accepted}
+        (\S3.2, \S3.3).
+  \item NOTAM review printout or screenshot (\S3.5).
+  \item Pre-flight checklist template covering weather, NOTAMs,
+        authorization, aircraft condition, pilot qualification, and
+        people-control status (\S6.4).
+  \item Flight-log entry template covering crew and flight time (\S7.1).
+  \item Blank incident-report template, ready to go if a CAR~901.49
+        event happens (\S7.3, \S8.1).
+\end{itemize}
+\end{infobox}
+
+Having all of this in one place covers the CAR~901.66 and 901.71(3)
+accessibility requirements without extra effort, and gives an inspector
+one clear place to look. A tablet works better than a binder in
+practice, because NAV Drone already runs on it and templates can be
+signed electronically. Keep a printed copy of the pilot certificate and
+recency pages as a backup in case the tablet dies on-site.
+
+\vspace{0.6em}
+
+% =============================================================
+\section{Next Steps for the City}
+% =============================================================
+
+Three paths, sequenced by lead time, and they are genuinely separate
+profiles rather than one escalating profile. \textbf{Path~1, Advanced
+VLOS}, covers initial installation and small-area compliant test
+flights with the aircraft in visual line of sight throughout; the City
+can start as soon as the near-term set is in place. \textbf{Path~2,
+Sheltered}, is a specific operation outside normal VLOS that applies
+only when a structure is being inspected and the CAR~900.01 geometry
+and CAR~901.74 conditions are all satisfied --- it is not a general
+upgrade to Path~1. \textbf{Path~3, Level~1 Complex BVLOS}, is for
+future longer-range operations and can start only once the RPOC and
+the Level~1 Complex certificate are both in place \emph{and} a mission
+fits the envelope in \S3.6.
+
+\begin{infobox}[Path 1. Advanced VLOS: near-term installation and local test flights]
+\begin{enumerate}[leftmargin=1.6em, itemsep=2pt]
+  \item Register and mark the aircraft (\S2.1, \S2.2).
+  \item Confirm the manufacturer's Standard~922.04 (Operations in
+        Controlled Airspace) Safety Assurance Declaration is on file.
+        This is needed for Advanced VLOS inside controlled airspace,
+        not only for Sheltered (\S2.3).
+  \item Log the aircraft configuration baseline (\S2.5).
+  \item Get an Advanced-certified pilot in place with in-date recency,
+        and keep their credentials on the controller or tablet
+        (\S1.1, \S1.2, \S1.4).
+  \item Open the City's organizational NAV Drone account (\S3.1).
+  \item Confirm aviation liability insurance status with Risk
+        Management (\S9.1).
+  \item Write the SOPs (normal, emergency, lost-link) and complete a
+        site survey for the test-flight area (\S5.1, \S6.1 to \S6.3).
+  \item Run a FOIPPA Privacy Impact Assessment for the video and AI
+        alert data (\S10.4).
+  \item Submit the NAV~CANADA RPAS Flight Authorization for the site
+        and wait for status \textbf{Accepted} (\S3.2, \S3.3).
+  \item Stand up the flight and maintenance logs, plus the CAR~901.49
+        incident-analysis record template (\S7.1 to \S7.3).
+\end{enumerate}
+\end{infobox}
+
+\begin{infobox}[Path 2. Sheltered: additional items when the specific sheltered conditions apply]
+\begin{enumerate}[leftmargin=1.6em, itemsep=2pt]
+  \item Confirm the Sheltered (Standard~922.04) Safety Assurance
+        Declaration covers the intended configuration (\S2.3).
+  \item Draw the site-specific sheltered operating volume (61\,m /
+        30\,m / 2\,NM / 30\,m boundaries) on the site diagram
+        (\S5.2).
+  \item Put a people-control plan in place for the site (\S5.3).
+  \item Update the lost-link and RTH procedure for the specific
+        structure being inspected (\S6.3).
+\end{enumerate}
+\end{infobox}
+
+\begin{infobox}[Path 3. Level~1 Complex BVLOS: before the first BVLOS flight]
+\begin{enumerate}[leftmargin=1.6em, itemsep=2pt]
+  \item Upgrade the pilot to Level~1 Complex Operations: Advanced
+        certificate, then 20 hours of ground school, then the
+        Level~1 Complex exam, then the Level~1 Complex flight
+        review (\S1.3).
+  \item Put together and submit the City's \textbf{RPOC} package:
+        a named Accountable Executive, operations manual,
+        safety-risk-management processes, training program,
+        Maintenance Control Manual, and a designated Person
+        Responsible for Maintenance (\S4.1, \S4.2).
+  \item Confirm a valid Safety Assurance Declaration --- pre-validated
+        by Transport Canada where that applies --- covers the actual
+        aircraft and configurable-element combination for the intended
+        BVLOS operation, including Standard~922.08 to 922.12 as
+        applicable (\S2.4, \S2.7).
+  \item If a parachute is part of the declared configuration or the
+        RPOC safety case, fit and document it (\S2.6).
+  \item For every BVLOS mission, confirm all four limits hold at
+        once: uncontrolled airspace; at or below 122\,m AGL; more
+        than 5\,NM from a Canada Flight Supplement aerodrome; and an
+        unpopulated or sparsely populated area. Check the population
+        limit first --- it is the one most likely to fail for
+        municipal work, and it fails regardless of airspace class.
+        Anything outside the envelope needs an SFOC-RPAS, on a
+        60-business-day service standard (\S3.6, \S4.3).
+\end{enumerate}
+\end{infobox}
+
+\vspace{0.8em}
+These items should be reviewed and renewed according to their
+applicable regulatory, manufacturer, insurance, or City-policy
+intervals, and whenever the operation or system configuration changes.
+The main ones to track: pilot recency (\S1.2, 24-month cycle, with the
+recency record itself retained 24 months under CAR~901.65(2), \S7.4);
+flight and maintenance record retention (\S7.1 and \S7.2, 12 and 24
+months under CAR~901.48(2)); insurance renewal (\S9.1, per policy
+term); FOIPPA PIA (\S10.4, on change or per City policy); the aircraft
+configuration baseline (\S2.5, on any change); manufacturer maintenance
+and, where one is declared, parachute inspection cycles (\S2.6, per
+manufacturer); and the RPOC framework (\S4.2, on change or as flagged
+by the City's own safety-risk-management processes).
+
+\vspace{0.6em}
+
+\begin{center}
+{\color{uavgrey}\small\itshape
+Prepared as part of the UAV-FRDS handover package. Reflects the
+regulatory position at the date on the title page.}
+\end{center}
+
+\end{document}

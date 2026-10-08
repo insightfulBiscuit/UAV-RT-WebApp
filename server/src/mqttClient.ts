@@ -1,6 +1,7 @@
 import mqtt, { type MqttClient } from "mqtt";
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
+import { logger } from "./logger.js";
 
 /**
  * DJI Cloud API v1.x speaks these Thing-Model topics per device gateway
@@ -73,9 +74,21 @@ class MqttHub extends EventEmitter {
   private tailMax = 2000;
   // Latest OSD payload per SN. OSD is a periodic snapshot (~1Hz per device).
   private latestOsd = new Map<string, { ts: number; payload: unknown }>();
+  // Merged view of `data.host.*` fields across successive OSD payloads for
+  // each SN. DJI splits the dock's OSD into two variants (device state +
+  // hardware/power) on the same topic; caching only the last one drops
+  // whichever variant didn't arrive most recently. Merging fixes that.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private mergedHost = new Map<string, { ts: number; host: Record<string, any> }>();
 
   osd(sn: string): { ts: number; payload: unknown } | undefined {
     return this.latestOsd.get(sn);
+  }
+
+  /** Merged `data.host` snapshot for an SN across all OSD variants seen. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  mergedOsdHost(sn: string): { ts: number; host: Record<string, any> } | undefined {
+    return this.mergedHost.get(sn);
   }
 
   /** Property set — publishes to `.../property/set` and awaits reply. */
@@ -152,6 +165,7 @@ class MqttHub extends EventEmitter {
       });
     });
 
+    logger.info("mqtt", `connecting to ${this.env.url}`, { clientId: this.env.clientId });
     const client = mqtt.connect(this.env.url, {
       username: this.env.username,
       password: this.env.password,
@@ -161,6 +175,12 @@ class MqttHub extends EventEmitter {
       clean: true,
     });
     this.client = client;
+
+    client.on("connect", () => logger.info("mqtt", `connected to ${this.env!.url}`));
+    client.on("reconnect", () => logger.warn("mqtt", "reconnecting"));
+    client.on("close", () => logger.warn("mqtt", "connection closed"));
+    client.on("offline", () => logger.warn("mqtt", "offline"));
+    client.on("error", (err) => logger.error("mqtt", `client error: ${err.message}`));
 
     client.on("message", (topic, payloadBuf) => {
       const raw = payloadBuf.toString("utf8");
@@ -172,12 +192,21 @@ class MqttHub extends EventEmitter {
       if (this.tail.length > this.tailMax) this.tail.shift();
       if (process.env.MQTT_LOG === "1") {
         const short = raw.length > 300 ? raw.slice(0, 300) + "…" : raw;
-        console.log(`[mqtt] ${topic}  ${short}`);
+        logger.debug("mqtt", `${topic}  ${short}`);
       }
       // Cache OSD snapshots per SN (e.g. thing/product/{sn}/osd).
       const osdMatch = topic.match(/^thing\/product\/([^/]+)\/osd$/);
       if (osdMatch) {
-        this.latestOsd.set(osdMatch[1], { ts: Date.now(), payload });
+        const sn = osdMatch[1];
+        this.latestOsd.set(sn, { ts: Date.now(), payload });
+        // Merge host-block fields into the rolling snapshot so both DJI
+        // OSD variants (state + hardware) can be read together.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const host = (payload as any)?.data?.host;
+        if (host && typeof host === "object") {
+          const prev = this.mergedHost.get(sn)?.host ?? {};
+          this.mergedHost.set(sn, { ts: Date.now(), host: { ...prev, ...host } });
+        }
       }
       // Correlate reply-topic messages back to callers awaiting their tid.
       // Only match messages on a REPLY topic — never on our own outgoing
@@ -225,11 +254,11 @@ class MqttHub extends EventEmitter {
       await new Promise<void>((resolve) => {
         client.subscribe(t, { qos: 1 }, (err, granted) => {
           if (err) {
-            console.warn(`MQTT subscribe rejected: ${t} (${err.message})`);
+            logger.warn("mqtt", `subscribe rejected: ${t} (${err.message})`);
           } else if (granted && granted[0] && granted[0].qos === 128) {
-            console.warn(`MQTT subscribe not authorized: ${t}`);
+            logger.warn("mqtt", `subscribe not authorized: ${t}`);
           } else {
-            console.log(`MQTT subscribed: ${t}`);
+            logger.info("mqtt", `subscribed: ${t}`);
           }
           resolve();
         });

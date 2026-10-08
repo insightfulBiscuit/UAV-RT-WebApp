@@ -1,0 +1,132 @@
+/* SystemStatus card — mirrors TelemetryStrip's layout so the two feel like
+   siblings. Same border/padding/header treatment, same cell grammar. */
+
+.system-status-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.9rem 1.1rem;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.system-status-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.system-status-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.system-status-pill {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.system-status-pill.ok {
+  background: rgba(74, 158, 53, 0.15);
+  color: var(--k-green, #4a9e35);
+}
+
+.system-status-pill.warn {
+  background: rgba(232, 120, 32, 0.15);
+  color: var(--k-orange, #e87820);
+}
+
+.system-status-pill.bad {
+  background: rgba(200, 50, 40, 0.15);
+  color: var(--k-red, #c83228);
+}
+
+.system-status-pill.offline {
+  background: rgba(120, 120, 120, 0.15);
+  color: var(--text-muted);
+}
+
+.system-status-loading {
+  padding: 1rem 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.system-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.5rem 1rem;
+}
+
+.sys-cell {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+  padding: 0.35rem 0;
+  min-width: 0;
+}
+
+.sys-cell-icon {
+  color: var(--text-muted);
+  padding-top: 2px;
+  flex-shrink: 0;
+}
+
+.sys-cell-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.sys-cell-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+.sys-cell-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sys-cell-dot-ok   { background: var(--k-green, #4a9e35); }
+.sys-cell-dot-warn { background: var(--k-orange, #e87820); }
+.sys-cell-dot-bad  { background: var(--k-red, #c83228); }
+.sys-cell-dot-off  {
+  background: transparent;
+  border: 1.5px solid var(--text-muted);
+  opacity: 0.5;
+}
+
+.sys-cell-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sys-cell-sub {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

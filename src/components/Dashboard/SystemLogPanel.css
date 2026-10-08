@@ -1,0 +1,125 @@
+.syslog-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1.1rem 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.syslog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: 0.75rem;
+}
+
+.syslog-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.syslog-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.syslog-level-select {
+  background: var(--bg-page);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+}
+
+.syslog-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--bg-page);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.syslog-icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.syslog-icon-btn.active {
+  color: var(--k-orange, #e87820);
+  border-color: var(--k-orange, #e87820);
+}
+
+.syslog-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 320px;
+  overflow-y: auto;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.syslog-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.2rem 0.3rem;
+  border-radius: var(--radius-sm);
+}
+
+.syslog-row:hover {
+  background: var(--bg-hover);
+}
+
+.syslog-time {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.syslog-level-badge {
+  flex-shrink: 0;
+  width: 3.6em;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.syslog-level-badge.level-debug { color: var(--text-muted); }
+.syslog-level-badge.level-info  { color: var(--k-blue, #1a5fad); }
+.syslog-level-badge.level-warn  { color: var(--k-orange, #e87820); }
+.syslog-level-badge.level-error { color: var(--k-red, #c83228); }
+
+.syslog-source {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.syslog-message {
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.syslog-row.level-error .syslog-message { color: var(--k-red, #c83228); }
+
+.syslog-empty {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-family: inherit;
+  padding: 1.25rem 0.5rem;
+  text-align: center;
+}
